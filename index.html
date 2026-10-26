@@ -1,0 +1,2504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOBOARD — Synth and Breadboard Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+:root{
+  --bg:#141414;--board:#e8e4d8;--hole:#7a7060;--holeborder:#5a5445;
+  --panel:#2a2825;--panel2:#1f1e1c;--bd:#0a0a0a;
+  --tx:#d4d0c8;--dim:#888378;
+  --c1:#ff9500;--c2:#ffcc00;--c3:#e74c3c;--c4:#3498db;--c5:#e67e22;
+  --ok:#30d158;--vcc:#c0392b;--gnd:#2c3e50;--cable-op:1;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--tx);user-select:none;font-size:12px}
+
+#toolbar{position:fixed;top:0;left:0;right:0;height:46px;background:var(--panel2);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:center;padding:0 12px;gap:6px;z-index:10000;flex-wrap:wrap;}
+#toolbar button{background:var(--panel);color:var(--tx);border:1px solid var(--bd);padding:7px 14px;font-family:inherit;font-size:11px;cursor:pointer;text-transform:uppercase;letter-spacing:1.2px;border-radius:20px}
+#toolbar button:hover{background:var(--bd);border-color:var(--dim)}
+#toolbar button.on{background:var(--c1);color:#000;border-color:var(--c1)}
+#toolbar button.power.on{background:var(--ok);color:#000;border-color:var(--ok)}
+#toolbar button.power.off{background:var(--c3);color:#fff;border-color:var(--c3)}
+#toolbar button.preset{background:var(--c4);color:#fff;border-color:var(--c4)}
+#toolbar button.zoom-btn{padding:5px 10px;min-width:32px;border-radius:50%;font-weight:bold;font-size:14px;}
+#zoomLabel{font-size:11px;color:var(--dim);min-width:36px;text-align:center;font-family:monospace}
+#audioStatus{position:absolute;right:12px;font-size:10px;color:var(--dim);font-family:monospace;padding:4px 10px;border-radius:4px}
+#audioStatus.active{color:var(--ok)}
+#audioStatus.power{color:var(--c1)}
+#audioStatus.err{color:var(--c3)}
+
+#palette{position:fixed;top:46px;left:0;bottom:0;width:260px;background:var(--panel2);border-right:1px solid var(--bd);padding:10px;overflow-y:auto;z-index:9000;transform:translateX(-100%);transition:transform .22s ease-out}
+#palette.open{transform:translateX(0)}
+#palette h3{font-size:10px;color:var(--c1);margin:14px 0 6px;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+#palette h3:first-child{margin-top:4px}
+.pal-btn{display:flex;align-items:center;gap:10px;width:100%;background:var(--panel);color:var(--tx);border:1px solid var(--bd);padding:8px 10px;margin-bottom:3px;font-family:inherit;font-size:11px;cursor:pointer;text-align:left;border-radius:6px}
+.pal-btn:hover{background:var(--bd)}
+.pal-btn.selected{background:var(--c1);color:#000;border-color:var(--c1)}
+.pal-icon{width:30px;height:30px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;background:var(--bd);color:var(--c1);font-family:monospace}
+.pal-btn.selected .pal-icon{background:#000;color:var(--c1)}
+.pal-name{flex:1;line-height:1.2;font-weight:600}
+.pal-name small{display:block;color:var(--dim);font-size:9px;margin-top:2px;font-weight:400}
+.pal-btn.selected .pal-name small{color:#333}
+
+#optionsPanel{position:fixed;top:46px;right:-380px;bottom:0;width:380px;background:var(--panel2);border-left:1px solid var(--bd);padding:12px;overflow-y:auto;z-index:9500;transition:right .22s ease-out}
+#optionsPanel.open{right:0}
+#optionsPanel h3{font-size:11px;color:var(--c1);margin:14px 0 6px;letter-spacing:2px;font-weight:600}
+#optionsPanel h3:first-child{margin-top:2px}
+#optionsPanel label{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--dim);margin-bottom:6px;gap:8px}
+#optionsPanel input[type=color]{width:60px;height:24px;border:1px solid var(--bd);background:var(--panel);cursor:pointer;padding:0;border-radius:4px}
+#optionsPanel input[type=range]{width:140px}
+#optionsPanel button.act{width:100%;background:var(--panel);color:var(--tx);border:1px solid var(--bd);padding:8px 10px;margin-top:6px;font-family:inherit;font-size:11px;cursor:pointer;border-radius:8px;letter-spacing:1px}
+#optionsPanel button.act:hover{background:var(--c1);color:#000;border-color:var(--c1)}
+#optionsPanel .preset-row{display:flex;gap:6px;margin-bottom:8px}
+#optionsPanel .preset-row button{flex:1;padding:8px;border-radius:6px;border:1px solid var(--bd);background:var(--panel);color:var(--tx);cursor:pointer;font-size:10px;letter-spacing:1px}
+#optionsPanel .preset-row button.active{background:var(--c1);color:#000;border-color:var(--c1)}
+
+.cable-swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
+.cable-swatch{
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 100%;
+    aspect-ratio: 1;
+    border: 2px solid var(--bd);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+    background: none;
+    transition: transform .12s;
+}
+.cable-swatch:hover{transform:scale(1.08)}
+.cable-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.cable-swatch::-webkit-color-swatch { border: none; border-radius: 4px; }
+
+#boardContainer{position:fixed;top:46px;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;padding:40px;overflow:auto;z-index:10; background:var(--bg); transition: top 0.2s, bottom 0.2s, right 0.2s;}
+#boardWrapper{display:grid; gap:20px; margin:auto; grid-auto-flow:column; grid-template-rows:repeat(3,auto); align-items:center; justify-content:center;}
+#boardWrapper.rows-1{grid-template-rows:auto}
+#boardWrapper.rows-2{grid-template-rows:repeat(2,auto)}
+#boardsModal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:20000}
+#boardsModal.open{display:flex}
+#boardsModal .bm-box{background:var(--panel);border:1px solid var(--c1);border-radius:12px;padding:20px;width:320px;max-width:90%}
+#boardsModal h2{color:var(--c1);margin:0 0 12px;font-size:14px;letter-spacing:1px}
+#boardsModal .bm-opt{display:block;width:100%;background:var(--panel2);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:6px;font-family:inherit;font-size:12px;cursor:pointer;text-align:left}
+#boardsModal .bm-opt:hover{border-color:var(--c1)}
+#boardsModal .bm-opt.sel{background:var(--c1);color:#000;border-color:var(--c1)}
+#boardsModal .bm-close{width:100%;margin-top:6px;background:none;color:var(--dim);border:1px solid var(--bd);border-radius:8px;padding:8px;cursor:pointer}
+
+.board-svg{display:block; background:var(--board); border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,.7); cursor:default; transition:background .3s}
+.board-svg.placing{cursor:cell}
+body.rack-mode #boardContainer{padding:20px}
+
+#rackKnobsPanel{position:fixed;background:var(--panel2);border:1px solid var(--bd);z-index:9200;display:none;flex-direction:column;transition:all .2s}
+body.rack-mode #rackKnobsPanel{display:flex}
+body.rack-mode #rackKnobsPanel.panel-top{top:46px;left:0;right:0;height:140px;border-bottom:1px solid var(--bd);}
+body.rack-mode #rackKnobsPanel.panel-bottom{bottom:0;left:0;right:0;height:140px;border-top:1px solid var(--bd);}
+body.rack-mode #boardContainer.top-panel{top:186px;bottom:0}
+body.rack-mode #boardContainer.bottom-panel{top:46px;bottom:140px}
+
+.rack-panel-header{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:var(--panel);border-bottom:1px solid var(--bd);flex-shrink:0;}
+.rack-panel-content{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px;
+    flex: 1;
+}
+.rack-knob-group{background:var(--panel);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;flex-shrink:0;display:flex;flex-direction:column;min-width: 150px;}
+.rack-knob-group .group-title{font-size:9px;color:var(--c1);letter-spacing:1.5px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.rack-knob-group .knob-row{display:flex;flex-wrap:wrap;gap:6px}
+
+/* Slightly smaller knobs for rack panel */
+.rack-panel-content .html-knob{min-width:38px;}
+.rack-panel-content .html-knob .knob-rot{width:28px;height:28px;}
+.rack-panel-content .html-knob .knob-label{font-size:8px;}
+.rack-panel-content .html-knob .knob-value{font-size:7px;}
+
+#internalsOverlay{position:fixed;pointer-events:none;z-index:99999;background:var(--panel);border:1px solid var(--c1);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.85);padding:10px;min-width:200px;max-width:340px;opacity:0;transform:scale(.9) translateY(6px);transform-origin:top left;transition:opacity .15s ease-out, transform .15s ease-out}
+#internalsOverlay.show{opacity:1;transform:scale(1) translateY(0);pointer-events:auto}
+#internalsOverlay .int-title{font-size:10px;color:var(--c1);font-weight:700;letter-spacing:1.5px;margin-bottom:6px}
+#internalsOverlay .int-schematic{background:#0a0a0a;border-radius:6px;margin-bottom:8px;padding:6px;display:flex;align-items:center;justify-content:center}
+#internalsOverlay .int-schematic svg{display:block;width:100%;height:auto;max-height:80px}
+#internalsOverlay .int-knobs{display:flex;flex-wrap:wrap;gap:8px}
+#internalsOverlay .int-steps{display:grid;grid-template-columns:repeat(8, 1fr);gap:3px;margin-top:6px;width:100%;}
+#internalsOverlay .int-steps button{height:16px;border-radius:50%;border:1px solid var(--bd);padding:0;cursor:pointer;}
+
+.html-knob{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:46px}
+.html-knob .knob-rot{width:34px;height:34px;border-radius:50%;background:#2a2825;border:2px solid #0a0a0a;position:relative;cursor:ns-resize;user-select:none;touch-action:none}
+.html-knob .knob-rot:active{transform:scale(.96)}
+.html-knob .knob-ind{position:absolute;left:50%;bottom:50%;width:2px;height:42%;background:var(--c1);transform-origin:center bottom;transform:translateX(-50%) rotate(0deg);border-radius:1px;pointer-events:none}
+.html-knob .knob-label{font-size:9px;color:var(--dim);font-weight:600;letter-spacing:.5px}
+.html-knob .knob-value{font-size:8px;color:var(--c1);font-family:monospace}
+
+svg text{pointer-events:none;user-select:none}
+.hole{fill:var(--hole);stroke:var(--holeborder);stroke-width:1;cursor:pointer;transition:r .1s,fill .1s}
+.hole:hover{fill:var(--c1);r:6}
+.hole.vcc{fill:var(--vcc);stroke:#7b241c}
+.hole.gnd{fill:var(--gnd);stroke:#1a252f}
+.rail-line-vcc{stroke:var(--vcc);stroke-width:5;stroke-linecap:round}
+.rail-line-gnd{stroke:var(--gnd);stroke-width:5;stroke-linecap:round}
+.notch{fill:rgba(0,0,0,.12)}
+.col-label{fill:#5a5040;font-size:11px;font-weight:700;text-anchor:middle}
+.row-label{fill:#5a5040;font-size:9px;font-weight:600;text-anchor:middle}
+
+.ic-body{fill:#1a1a1a;stroke:#000;stroke-width:2}
+.ic-notch{fill:none;stroke:#000;stroke-width:2}
+.ic-label{font-size:10px;font-weight:700;text-anchor:middle}
+.ic-pin-stub{stroke-width:2}
+.ic-power-dot{stroke:#000;stroke-width:1}
+.ic-clock-led{stroke:#000;stroke-width:1;transition:fill .08s}
+.ic-internals{opacity:0;transition:opacity .2s;pointer-events:none}
+g[data-id]:hover .ic-internals{opacity:1}
+.passive-body{stroke:#000;stroke-width:1}
+.passive-label{font-size:7px;font-weight:700;text-anchor:middle;fill:#000}
+.wire{stroke-width:3;fill:none;stroke-linecap:round;cursor:pointer;stroke-opacity:var(--cable-op);transition:stroke .15s,stroke-width .15s}
+.wire:hover{stroke-width:4}
+.wire.active{stroke-width:3.5;filter:drop-shadow(0 0 4px var(--c2))}
+.out-jack{stroke:#000;stroke-width:2}
+.out-label{font-size:8px;font-weight:700;text-anchor:middle;fill:#000}
+.preview{stroke:var(--c1);stroke-width:2;fill:none;stroke-dasharray:5,4;stroke-linecap:round}
+.preview-rect{fill:rgba(255,149,0,.2);stroke:var(--c1);stroke-width:1.5;stroke-dasharray:4,3}
+
+#helpModal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:20000}
+#helpModal.open{display:flex}
+#helpModal .help-content{background:var(--panel);border:1px solid var(--c1);border-radius:12px;padding:24px;max-width:700px;width:90%;max-height:80vh;overflow-y:auto;line-height:1.6;color:var(--tx)}
+#helpModal h2{color:var(--c1);margin:0 0 12px;font-size:16px}
+#helpModal h3{color:var(--c2);margin:16px 0 6px;font-size:13px;letter-spacing:1px}
+#helpModal p{margin:0 0 8px}
+#helpModal .close-help{margin-top:16px;background:var(--c1);color:#000;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;width:100%}
+#helpModal .close-help:hover{background:var(--c2)}
+#circuitModal{position:fixed;inset:0;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;z-index:21000}
+#circuitModal.open{display:flex}
+#circuitModal .circuit-content{background:var(--panel);border:1px solid var(--ok);border-radius:10px;padding:22px;max-width:820px;width:92%;max-height:82vh;overflow:auto;color:var(--tx);line-height:1.55}
+#circuitModal h2{margin:0 0 10px;color:var(--ok);font-size:17px}
+#circuitModal table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+#circuitModal th,#circuitModal td{padding:7px;border-bottom:1px solid var(--bd);text-align:left}
+#circuitModal .circuit-close{margin-top:12px;width:100%;padding:9px;border:0;border-radius:5px;background:var(--ok);color:#07110b;font-weight:700;cursor:pointer}
+
+/* PRO digital-electronics workspace, based on the supplied breadboard reference */
+#proWorkspace{display:none;position:fixed;inset:46px 0 0;background:#d8d8dc;color:#24242a;z-index:30;overflow:auto;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",Arial,sans-serif}
+body.pro-mode #boardContainer{display:flex!important}
+body.pro-mode #palette,body.pro-mode #optionsPanel,body.pro-mode #rackKnobsPanel,body.pro-mode #internalsOverlay{display:none!important}
+body.pro-mode #toolbar{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap}
+#proLayout{min-width:900px;display:grid;grid-template-columns:minmax(0,1fr) 86px;gap:8px;padding:12px 10px 20px}
+#proMain{min-width:0}
+#proControls{display:flex;align-items:center;gap:10px;min-height:105px;padding:5px 4px 12px}
+.pro-box{border:1px solid #c2c3c9;border-radius:10px;background:linear-gradient(#e7e7eb,#d2d2d8);box-shadow:inset 0 1px 2px #fff;display:flex;align-items:center;justify-content:center;gap:7px;padding:8px}
+.pro-toggle{border:0;background:transparent;cursor:pointer;color:#333;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px;min-width:25px}
+.pro-lamp{display:block;width:27px;height:27px;border-radius:50%;background:#a83236;border:1px solid #a8a8ae;box-shadow:inset 0 2px 4px #5557,0 1px 1px white}
+.pro-lamp.on{background:#39a65b;box-shadow:inset 0 2px 4px #5557,0 0 5px #36a45a88}
+.pro-lamp.yellow{background:#aaa35a}.pro-lamp.red{background:#a83236}
+.pro-digit-wrap{display:flex;gap:4px;background:#c5c5cb;padding:5px;border-radius:5px}
+.pro-digit{width:105px;height:146px;background:#080a0f;border:2px solid #22252b;position:relative;display:grid;place-items:center}
+.pro-digit svg{width:100%;height:100%}
+#proBoard{background:#e7e4da;border:2px solid #b9b8b2;border-radius:12px;padding:10px 12px;box-shadow:inset 0 1px 4px #fff;overflow:hidden}
+.pro-rail{height:21px;display:grid;grid-template-columns:repeat(60,minmax(5px,1fr));gap:2px;align-items:center;border-bottom:3px solid #c64e61;margin-bottom:5px;padding:0 4px}
+.pro-rail.bottom{border-bottom:0;border-top:3px solid #4c79c9;margin:6px 0 0}
+.pro-hole{height:10px;min-width:3px;border:1px solid #b9b8b3;background:radial-gradient(circle at 40% 35%,#686a70 0 1px,#c8c8c7 2px,#ecebe6 4px);position:relative}
+.pro-hole:after{content:"×";position:absolute;inset:-4px 0 0;text-align:center;font-size:11px;line-height:13px;color:#66676c}
+.pro-hole-row{display:grid;grid-template-columns:20px minmax(0,1fr) 20px;align-items:center;gap:4px;margin:3px 0}
+.pro-row-label{font-size:12px;color:#4f5663;text-align:center}
+.pro-holes{display:grid;grid-template-columns:repeat(60,minmax(5px,1fr));gap:2px}
+.pro-half{padding:3px 0}
+.pro-gap{height:14px;border-top:1px solid #b8b8b8;border-bottom:1px solid #f8f8f5;margin:7px 0}
+#proSideLeds{display:flex;flex-direction:column;justify-content:space-around;align-items:center;padding:5px 0}
+.pro-side-led{display:flex;align-items:center;gap:3px;font-size:11px;color:#555}
+.pro-side-led .pro-lamp{width:25px;height:25px;background:#39a65b}
+#proBottom{display:flex;gap:12px;align-items:stretch;margin-top:10px;flex-wrap:wrap}
+.pro-input-bank{display:flex;gap:7px;padding:10px;border:1px solid #c5c5ca;border-radius:10px;background:#dedee3}
+.pro-input{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px;min-width:28px}
+.pro-input button{width:24px;height:33px;border:2px solid #9b9b9f;border-radius:4px;background:linear-gradient(90deg,#f7f7f5,#bfc0c4);cursor:pointer}
+.pro-input button.active{background:#a4d3a4;border-color:#43834b;box-shadow:inset 0 0 0 3px #eaf5e9}
+.pro-clock{min-width:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:11px}
+.pro-clock button{border:1px solid #aaa;border-radius:50%;width:22px;height:22px;background:#ddd;cursor:pointer}
+.pro-clock.active button{background:#54a0e5}
+#proCatalog{display:none;position:fixed;z-index:12000;right:8px;top:54px;bottom:8px;width:min(370px,94vw);background:#1c2028;color:#eef1f5;border:1px solid #5b6474;border-radius:10px;box-shadow:0 8px 35px #0009;padding:12px;overflow:auto}
+#proCatalog.open{display:block}
+#proCatalog h2{font-size:15px;margin:0 0 10px;color:#79bdff}
+#proSearch{width:100%;box-sizing:border-box;padding:9px;border-radius:6px;border:1px solid #596170;background:#10141a;color:#fff;margin-bottom:10px}
+#proCatalogList{display:grid;gap:5px}
+.pro-chip{display:block;width:100%;text-align:left;padding:8px;border:1px solid #424a58;background:#262d38;color:#f0f2f5;border-radius:6px;cursor:pointer}
+.pro-chip:hover,.pro-chip.selected{border-color:#67b6ff;background:#303f50}
+.pro-chip small{display:block;color:#b2bbc7;margin-top:3px}
+#proStatus{font-size:12px;margin:8px 0;color:#303742}
+#proHelp{font-size:11px;line-height:1.5;color:#bdc6d1}
+@media(max-width:950px){#proLayout{padding:6px}#proControls{gap:5px;transform-origin:left top} .pro-digit{width:76px;height:110px}#proBoard{padding:7px 5px}.pro-holes{gap:1px}.pro-hole{height:8px}.pro-hole:after{font-size:9px;top:-4px}}
+
+body,button,input,select,textarea{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Arial,sans-serif}
+</style>
+</head>
+<body>
+<script>
+    document.addEventListener('click', function unlockAudio() {
+        if (typeof audioCtx !== 'undefined' && audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => {
+                console.log("Audio desbloqueado");
+            });
+        }
+    }, { once: true });
+</script>
+
+<div id="toolbar">
+  <button id="bLanguage" class="on" aria-label="Switch language" title="Switch language">EN / ES</button>
+  <button id="bPower" class="power on">POWER ON</button>
+  <button id="bRack">PROTO/RACK</button>
+  <button id="bPreset" class="preset">KICK PRESET</button>
+  <button id="bSynthPreset" class="preset" style="background:var(--c5)">SYNTH PRESET</button>
+  <button id="bComponents">COMPONENTS</button>
+  <button id="bOptions">OPTIONS</button>
+  <button id="bBasic" style="border-color:var(--c2);color:var(--c2)">BASIC GUIDE</button>
+  <button id="bHelp" style="border-color:var(--c4);color:var(--c4)">CONNECTION GUIDE</button>
+  <button id="bCircuit" style="border-color:var(--ok);color:var(--ok)">CIRCUIT ANALYSIS</button>
+  <button id="bBoards" style="border-color:var(--ok);color:var(--ok)">1 BOARD</button>
+  <button id="bSync" class="on">SYNC ON</button>
+  <button id="bWireMode">WIRE: DRAG</button>
+  <span style="margin-left:10px; display:flex; align-items:center; gap:4px;">
+    <button id="bZoomOut" class="zoom-btn">−</button>
+    <span id="zoomLabel">80%</span>
+    <button id="bZoomIn" class="zoom-btn">+</button>
+  </span>
+  <span id="audioStatus">VCO: off</span>
+</div>
+
+
+<div id="palette"></div>
+<div id="optionsPanel"></div>
+<div id="rackKnobsPanel" class="panel-top"></div>
+<div id="internalsOverlay"></div>
+
+<div id="boardContainer">
+  <div id="boardWrapper">
+     <!-- Boards will be injected here -->
+  </div>
+</div>
+
+<div id="circuitModal" role="dialog" aria-modal="true" aria-labelledby="circuitTitle">
+  <div class="circuit-content">
+    <h2 id="circuitTitle">HYBRID CIRCUIT ANALYSIS</h2>
+    <p id="circuitIntro">The audio engine runs behavioral synthesizer/effect models. This panel separately solves DC voltages and currents for connected resistors and potentiometers using nodal conductance analysis, with board rails treated as +5 V and 0 V. Capacitors are open circuits in DC analysis.</p>
+    <div id="circuitResults">Run analysis to inspect the current board wiring.</div>
+    <button class="circuit-close" id="bCircuitClose">CLOSE</button>
+  </div>
+</div>
+
+<!-- BOARDS MODAL -->
+<div id="boardsModal">
+  <div class="bm-box">
+    <h2>BOARDS · BOARD 1 = MASTER OUTPUT</h2>
+    <button class="bm-opt" data-n="1">1 BOARD</button>
+    <button class="bm-opt" data-n="2">2 BOARDS</button>
+    <button class="bm-opt" data-n="3">3 BOARDS (1 column)</button>
+    <button class="bm-opt" data-n="6">6 BOARDS (2 columns × 3)</button>
+    <button class="bm-opt" data-n="12">12 BOARDS (4 columns × 3)</button>
+    <button class="bm-close">CLOSE</button>
+  </div>
+</div>
+
+<!-- BASIC GUIDE -->
+<div id="basicModal" style="position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:20000;">
+  <div class="help-content" id="basicGuideContent" style="background:var(--panel);border:1px solid var(--c1);border-radius:12px;padding:24px;max-width:760px;width:90%;max-height:80vh;overflow-y:auto;line-height:1.6;color:var(--tx)"></div>
+</div>
+<!-- CONNECTION GUIDE -->
+<div id="helpModal">
+  <div class="help-content" id="routingGuideContent"></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const ROWS_TOTAL = 60;
+const CELL = 32;
+
+const LAYOUT = {
+  vbW: 2160, vbH: 560, gridX0: 100, gridY0: 110, notch: 24,
+  rails: [
+    {id:'top-vcc', x1:90, x2:2080, y:40, color:'#c0392b', label:'VCC'},
+    {id:'top-gnd', x1:90, x2:2080, y:68, color:'#2c3e50', label:'GND'},
+    {id:'bot-gnd', x1:90, x2:2080, y:490, color:'#2c3e50', label:'GND'},
+    {id:'bot-vcc', x1:90, x2:2080, y:518, color:'#c0392b', label:'VCC'},
+  ],
+  pinXY(p) {
+    if (p.rail) { const r = this.rails.find(r => r.id === p.rail); return { x: this.gridX0 + p.col*CELL, y: r.y }; }
+    const x = this.gridX0 + p.row*CELL;
+    const yTop = this.gridY0 + p.col*CELL;
+    const yBot = this.gridY0 + 5*CELL + this.notch + p.col*CELL;
+    return { x, y: p.half === 'top' ? yTop : yBot };
+  },
+  icBounds(r, pins) { return { x1: this.gridX0 + r*CELL - 6, y1: this.gridY0 - 6, x2: this.gridX0 + (r+((pins||8)/2-1))*CELL + 6, y2: this.gridY0 + 5*CELL + this.notch + 5*CELL + 6 }; }
+};
+
+const COMPONENTS = {
+  JUMPER:{label:'Jumper',sub:'Cable',group:'BASIC',icon:'~~',pins:2,color:'#ffcc00',kind:'wire'},
+  R:{label:'Resistor',sub:'10 kΩ',group:'BASIC',icon:'R',pins:2,color:'#e67e22',kind:'passive'},
+  C:{label:'Capacitor',sub:'100 nF',group:'BASIC',icon:'C',pins:2,color:'#3498db',kind:'passive'},
+  POT:{label:'Potentiometer',sub:'10 kΩ',group:'BASIC',icon:'P',pins:2,color:'#f39c12',kind:'passive'},
+  
+  Q_NPN:{label:'2N3904',sub:'NPN Transistor',group:'SEMICONDUCTORS',icon:'Q',pins:3,color:'#e67e22',kind:'passive'},
+  Q_JFET:{label:'2N5485',sub:'JFET Transistor',group:'SEMICONDUCTORS',icon:'J',pins:3,color:'#e67e22',kind:'passive'},
+  D_DIODE:{label:'1N4148',sub:'Signal Diode',group:'SEMICONDUCTORS',icon:'D',pins:2,color:'#95a5a6',kind:'passive'},
+  D_LED:{label:'LED',sub:'Light Emitting Diode',group:'SEMICONDUCTORS',icon:'LED',pins:2,color:'#e74c3c',kind:'passive'},
+  D_ZENER:{label:'1N4733A',sub:'Zener 5.1V',group:'SEMICONDUCTORS',icon:'Z',pins:2,color:'#95a5a6',kind:'passive'},
+  REG_5V:{label:'LM7805',sub:'+5V Regulator',group:'SEMICONDUCTORS',icon:'REG',pins:3,color:'#2c3e50',kind:'passive'},
+  REG_12V:{label:'LM7812',sub:'+12V Regulator',group:'SEMICONDUCTORS',icon:'REG',pins:3,color:'#2c3e50',kind:'passive'},
+  LOGIC_NAND:{label:'CD4093',sub:'NAND Schmitt',group:'SEMICONDUCTORS',icon:'NAND',pins:4,color:'#8e44ad',kind:'passive'},
+  LOGIC_SW:{label:'CD4066',sub:'Analog Switch',group:'SEMICONDUCTORS',icon:'SW',pins:4,color:'#8e44ad',kind:'passive'},
+  TRANS_ARRAY:{label:'CA3046',sub:'Matched NPN Array',group:'SEMICONDUCTORS',icon:'ARR',pins:5,color:'#e67e22',kind:'passive'},
+
+  VCO:{label:'VCO TL072',sub:'Sawtooth Oscillator',group:'SOURCES',icon:'VCO',pins:8,color:'#ff9500',kind:'VCO',
+    power:{VCC:8,GND:4},sig:{OUT:7,CV:3},
+    knobs:[{id:'freq',label:'FREQ',min:20,max:2000,def:110,unit:'Hz'},{id:'fine',label:'FINE',min:-100,max:100,def:0},{id:'detune',label:'DETUNE',min:0,max:50,def:0},{id:'lp',label:'LP',min:100,max:20000,def:20000,unit:'Hz'},{id:'oct',label:'OCT',min:-4,max:4,def:0,int:true},{id:'fm',label:'FM',min:0,max:1000,def:0},{id:'pwm',label:'PWM',min:0,max:1,def:0},{id:'lvl',label:'LVL',min:0,max:1,def:0.25,unit:'%'}]},
+  ENV:{label:'ENV CD40106',sub:'Envelope Generator',group:'SOURCES',icon:'ENV',pins:8,color:'#ffcc00',kind:'ENV',
+    power:{VCC:8,GND:4},sig:{OUT:7},
+    knobs:[{id:'attack',label:'A',min:0.001,max:1,def:0.01},{id:'decay',label:'D',min:0.01,max:2,def:0.2},{id:'sustain',label:'S',min:0,max:1,def:0.7,unit:'%'},{id:'release',label:'R',min:0.01,max:2,def:0.3}]},
+  LFO:{label:'LFO NE555',sub:'Low Freq Oscillator',group:'SOURCES',icon:'LFO',pins:8,color:'#e67e22',kind:'LFO',
+    power:{VCC:8,GND:4},sig:{OUT:3},
+    knobs:[{id:'rate',label:'RATE',min:0.05,max:20,def:4,unit:'Hz'},{id:'scale',label:'SCALE',min:0,max:1,def:0.5,unit:'%'}]},
+
+  VCF:{label:'VCF LM13700',sub:'Lowpass Filter',group:'PROCESS',icon:'VCF',pins:8,color:'#3498db',kind:'VCF',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7,CV:3},
+    knobs:[{id:'cutoff',label:'CUT',min:100,max:15000,def:2000,unit:'Hz'},{id:'resonance',label:'RES',min:0.1,max:20,def:2}]},
+  VCA:{label:'VCA LM13700',sub:'Amplifier',group:'PROCESS',icon:'VCA',pins:8,color:'#e74c3c',kind:'VCA',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7,CV:3},
+    knobs:[{id:'gain',label:'GAIN',min:0,max:1,def:0.6,unit:'%'}]},
+  PITCH:{label:'PITCH TL072',sub:'Pitch Bend Sum',group:'PROCESS',icon:'PIT',pins:8,color:'#9b59b6',kind:'PITCH',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7},
+    knobs:[{id:'bend',label:'BEND',min:-12,max:12,def:0,unit:'st'}]},
+
+  DELAY:{label:'DELAY PT2399',sub:'Echo Processor',group:'EFFECTS',icon:'DLY',pins:8,color:'#16a085',kind:'DELAY',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7},
+    knobs:[{id:'time',label:'TIME',min:0.05,max:1.5,def:0.3,unit:'ms'},{id:'fb',label:'FB',min:0,max:0.85,def:0.4,unit:'%'},{id:'mix',label:'MIX',min:0,max:1,def:0.5,unit:'%'}]},
+  REV:{label:'MULTI-REVERB',sub:'BTDR-3H',group:'EFFECTS',icon:'REV',pins:8,color:'#8e44ad',kind:'REVERB',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7},
+    knobs:[
+      {id:'mode',label:'MODE',min:0,max:2,def:1,unit:'',int:true},
+      {id:'mix',label:'MIX',min:0,max:1,def:0.5,unit:'%'},
+      {id:'size',label:'SIZE',min:0.5,max:4,def:2,unit:'s'}
+    ]},
+  CHORUS:{label:'CHORUS MN3007',sub:'BBD + LFO',group:'EFFECTS',icon:'CHO',pins:8,color:'#27ae60',kind:'CHORUS',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7},
+    knobs:[{id:'rate',label:'RATE',min:0.1,max:8,def:1.5,unit:'Hz'},{id:'depth',label:'DEPTH',min:0,max:1,def:0.5,unit:'%'}]},
+  DIST:{label:'DIST TL071',sub:'Shockley Saturation',group:'EFFECTS',icon:'DST',pins:8,color:'#c0392b',kind:'DIST',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7},
+    knobs:[{id:'drive',label:'DRIVE',min:10,max:200,def:50}]},
+  COMP:{label:'COMP',sub:'THAT2180 VCA',group:'EFFECTS',icon:'CMP',pins:8,color:'#8e44ad',kind:'COMP',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7},
+    knobs:[{id:'threshold',label:'THR',min:-60,max:0,def:-20},{id:'ratio',label:'RATIO',min:1,max:20,def:4}]},
+  REC:{label:'REC',sub:'VS1053b ADC/SD',group:'EFFECTS',icon:'REC',pins:8,color:'#e74c3c',kind:'REC',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7},
+    knobs:[{id:'gain',label:'GAIN',min:0,max:2,def:1}]},
+
+  CLOCK:{label:'CLOCK NE555',sub:'Master Clock',group:'CLOCK',icon:'CLK',pins:8,color:'#2980b9',kind:'CLOCK',
+    power:{VCC:8,GND:4},sig:{OUT:3},
+    knobs:[{id:'bpm',label:'BPM',min:40,max:240,def:120,unit:'BPM'}]},
+  RUNRESET:{label:'RUN/RESET CD4017',sub:'Edge Sequencer',group:'CLOCK',icon:'RUN',pins:8,color:'#34495e',kind:'RUNRESET',
+    power:{VCC:8,GND:4},sig:{IN:2,OUT:7},
+    knobs:[{id:'length',label:'LEN',min:1,max:16,def:16,int:true}]},
+  SEQ:{label:'HW SEQ (CD4017)',sub:'Step Sequencer',group:'CLOCK',icon:'SEQ',pins:8,color:'#ff6b00',kind:'SEQ',
+    power:{VCC:8,GND:4},sig:{IN:1,OUT:6,CLK:2,CV:3,GATE:7},
+    knobs:[{id:'length',label:'LEN',min:1,max:16,def:16,int:true}]},
+
+  SCOPE:{label:'SCOPE',sub:'DS1054Z 4-Channel',group:'VISUAL',icon:'OSC',pins:8,color:'#2ecc71',kind:'SCOPE',
+    power:{VCC:8,GND:4},sig:{IN1:1,IN2:2,IN3:3,IN4:5,OUT:7},
+    knobs:[
+      {id:'timeDiv',label:'ms/div',min:1,max:100,def:10,unit:'ms'},
+      {id:'voltDiv',label:'V/div',min:0.1,max:5,def:1,unit:'V'}
+    ]},
+
+  // MIXER 5CH: 18 pines, 5 IN + 5 SEND + 5 RETURN + OUT
+  MIXER:{label:'MIXER 5CH',sub:'5 IN + 5 SEND/RET',group:'MIX',icon:'MIX',pins:18,color:'#f1c40f',kind:'MIXER',
+    power:{VCC:18,GND:9},sig:{IN1:1,IN2:2,IN3:3,IN4:4,IN5:5,OUT:6,SEND1:7,SEND2:8,SEND3:10,SEND4:11,SEND5:12,RET1:13,RET2:14,RET3:15,RET4:16,RET5:17},
+    knobs:[{id:'vol1',label:'V1',min:0,max:1,def:0.7,unit:'%'},{id:'vol2',label:'V2',min:0,max:1,def:0.7,unit:'%'},{id:'vol3',label:'V3',min:0,max:1,def:0.7,unit:'%'},{id:'vol4',label:'V4',min:0,max:1,def:0.7,unit:'%'},{id:'vol5',label:'V5',min:0,max:1,def:0.7,unit:'%'},{id:'snd1',label:'S1',min:0,max:1,def:0,unit:'%'},{id:'snd2',label:'S2',min:0,max:1,def:0,unit:'%'},{id:'snd3',label:'S3',min:0,max:1,def:0,unit:'%'},{id:'snd4',label:'S4',min:0,max:1,def:0,unit:'%'},{id:'snd5',label:'S5',min:0,max:1,def:0,unit:'%'},{id:'ret1',label:'R1',min:0,max:1,def:0.7,unit:'%'},{id:'ret2',label:'R2',min:0,max:1,def:0.7,unit:'%'},{id:'ret3',label:'R3',min:0,max:1,def:0.7,unit:'%'},{id:'ret4',label:'R4',min:0,max:1,def:0.7,unit:'%'},{id:'ret5',label:'R5',min:0,max:1,def:0.7,unit:'%'}]},
+  // MIXER 12CH: 16 pines, 12 IN -> 1 OUT (sin send/return)
+  MIXER12:{label:'MIXER 12CH',sub:'12 IN → 1 OUT',group:'MIX',icon:'M12',pins:16,color:'#f39c12',kind:'MIXER12',
+    power:{VCC:16,GND:8},sig:{IN1:1,IN2:2,IN3:3,IN4:4,IN5:5,IN6:6,IN7:7,IN8:9,IN9:10,IN10:11,IN11:12,IN12:13,OUT:14},
+    knobs:[{id:'vol1',label:'V1',min:0,max:1,def:0.7,unit:'%'},{id:'vol2',label:'V2',min:0,max:1,def:0.7,unit:'%'},{id:'vol3',label:'V3',min:0,max:1,def:0.7,unit:'%'},{id:'vol4',label:'V4',min:0,max:1,def:0.7,unit:'%'},{id:'vol5',label:'V5',min:0,max:1,def:0.7,unit:'%'},{id:'vol6',label:'V6',min:0,max:1,def:0.7,unit:'%'},{id:'vol7',label:'V7',min:0,max:1,def:0.7,unit:'%'},{id:'vol8',label:'V8',min:0,max:1,def:0.7,unit:'%'},{id:'vol9',label:'V9',min:0,max:1,def:0.7,unit:'%'},{id:'vol10',label:'V10',min:0,max:1,def:0.7,unit:'%'},{id:'vol11',label:'V11',min:0,max:1,def:0.7,unit:'%'},{id:'vol12',label:'V12',min:0,max:1,def:0.7,unit:'%'}]},
+  OUT:{label:'Master Out',sub:'NE5532 Buffer',group:'MIX',icon:'♪',pins:1,color:'#30d158',kind:'OUT'},
+};
+
+const THEMES = {
+  origins:{
+    bg:'#0d0d0d',board:'#e5e0d0',hole:'#6b6253',holeborder:'#4a4438',
+    panel:'#2a2620',panel2:'#1a1714',bd:'#050505',
+    tx:'#e0d8c8',dim:'#857a68',
+    accent:'#ff5500',accent2:'#e8b824',accent3:'#e74c3c',accent4:'#4a90d9',accent5:'#ff9900',
+    cableOpacity:1, cableTension:0.5,
+    cableColors:['#ff5500','#e8b824','#e74c3c','#4a90d9','#ff9900','#88cc44','#ff6699','#66ddcc','#c0a060','#dd8844']
+  },
+  board:{
+    bg:'#000000',board:'#111111',hole:'#333333',holeborder:'#1a1a1a',
+    panel:'#0f0f0f',panel2:'#080808',bd:'#000000',
+    tx:'#dddddd',dim:'#555555',
+    accent:'#ffffff',accent2:'#888888',accent3:'#ff3333',accent4:'#666666',accent5:'#cccccc',
+    cableOpacity:1, cableTension:0.5,
+    cableColors:['#ffffff','#888888','#ff3333','#666666','#cccccc','#aaaaaa','#dddddd','#999999','#bbbbbb','#777777']
+  }
+};
+
+const savedThemeName = localStorage.getItem('pb_theme') || 'origins';
+const initialThemeName = THEMES[savedThemeName] ? savedThemeName : 'origins';
+const savedBoards = parseInt(localStorage.getItem('pb_boards') || '1');
+const initialBoards = [1, 2, 3, 6, 12].includes(savedBoards) ? savedBoards : 1;
+
+const state = {
+  components: [],
+  nextId: 1,
+  selectedType: null,
+  pendingFirstPin: null,
+  soundOn: true,
+  powered: true,
+  rackMode: false,
+  rackPanelPos: 'top',
+  theme: JSON.parse(localStorage.getItem('pb_themeColors') || JSON.stringify(THEMES[initialThemeName])),
+  themeName: initialThemeName,
+  hoveredIC: null,
+  history: [],
+  histIndex: -1,
+  histDisabled: false,
+  seqPos: 0,
+  seqNotes: Array(16).fill(0),
+  audioNodes: {},
+  activeCableColorIndex: 1,
+  zoom: initialBoards >= 12 ? 0.25 : (initialBoards >= 6 ? 0.3 : (initialBoards >= 2 ? 0.5 : 0.8)),
+  numBoards: initialBoards,
+  syncEnabled: true,
+  pointToPoint: false
+};
+
+const NS = 'http://www.w3.org/2000/svg';
+let boardSvgs = [];
+
+// ============ UTILS ============
+function pinKey(p, bIdx) {
+  const pre = bIdx + ':';
+  if (p.rail) return pre + 'rail:' + (p.rail.includes('vcc') ? 'VCC' : 'GND');
+  return pre + 'g:' + p.row + ':' + p.half + ':' + p.col;
+}
+function pinXY(p) { return LAYOUT.pinXY(p); }
+
+function icPinPositions(R, pinCount) {
+  const n = Math.floor(pinCount / 2), pins = {};
+  if (pinCount < 8 || pinCount % 2) return pins;
+  for (let i = 1; i <= n; i++) pins[i] = { row: R + i - 1, half: 'top', col: 4 };
+  for (let j = 1; j <= n; j++) pins[n + j] = { row: R + n - j, half: 'bottom', col: 0 };
+  return pins;
+}
+
+function svg(tag, attrs) {
+  const el = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+function formatKnobValue(v, def) {
+  if (def.unit === 'Hz') return v < 10 ? v.toFixed(2) + 'Hz' : v.toFixed(0) + 'Hz';
+  if (def.unit === 'ms') return Math.round(v*1000) + 'ms';
+  if (def.unit === 'BPM') return v.toFixed(0) + ' BPM';
+  if (def.unit === '%') return (v*100).toFixed(0) + '%';
+  if (def.unit === 'st') return (v >= 0 ? '+' : '') + v.toFixed(0) + 'st';
+  if (def.unit === 'V') return v.toFixed(1) + 'V';
+  if (def.unit === 's') return v.toFixed(1) + 's';
+  if (def.id === 'mode') return ['ROOM','HALL','CATH'][Math.round(v)];
+  return v.toFixed(2);
+}
+
+// ============ HISTORY ============
+function snapshot() {
+  return JSON.stringify({ components: state.components, nextId: state.nextId, theme: state.theme, themeName: state.themeName, seqNotes: state.seqNotes });
+}
+function pushHistory() {
+  if (state.histDisabled) return;
+  const s = snapshot();
+  if (state.history[state.histIndex] === s) return;
+  state.history = state.history.slice(0, state.histIndex + 1);
+  state.history.push(s);
+  state.histIndex++;
+  if (state.history.length > 60) { state.history.shift(); state.histIndex--; }
+}
+function undo() { if (state.histIndex > 0) { state.histIndex--; restoreSnap(); } }
+function redo() { if (state.histIndex < state.history.length - 1) { state.histIndex++; restoreSnap(); } }
+function restoreSnap() {
+  const d = JSON.parse(state.history[state.histIndex]);
+  state.histDisabled = true;
+  state.components = d.components;
+  state.nextId = d.nextId;
+  state.theme = d.theme;
+  state.themeName = d.themeName;
+  state.seqNotes = d.seqNotes || Array(16).fill(0);
+  applyTheme();
+  rebuildNets();
+  renderAllBoards();
+  if (state.rackMode) renderRackMode();
+  updateAudio();
+  state.histDisabled = false;
+}
+
+// ============ UNION-FIND ============
+let uf;
+function UnionFind() { this.p = {}; }
+UnionFind.prototype.find = function(x) { if (!(x in this.p)) this.p[x] = x; if (this.p[x] !== x) this.p[x] = this.find(this.p[x]); return this.p[x]; };
+UnionFind.prototype.union = function(a, b) { const ra = this.find(a), rb = this.find(b); if (ra !== rb) this.p[ra] = rb; };
+
+// ============ THEME ============
+function applyTheme() {
+  const t = state.theme, r = document.documentElement;
+  ['bg','board','hole','holeborder','panel','panel2','bd','tx','dim'].forEach(k => r.style.setProperty('--' + k, t[k] || '#333'));
+  r.style.setProperty('--c1', t.accent);
+  r.style.setProperty('--c2', t.accent2);
+  r.style.setProperty('--c3', t.accent3);
+  r.style.setProperty('--c4', t.accent4);
+  r.style.setProperty('--c5', t.accent5);
+  r.style.setProperty('--cable-op', t.cableOpacity);
+  localStorage.setItem('pb_theme', state.themeName);
+  localStorage.setItem('pb_themeColors', JSON.stringify(t));
+  renderWires(); 
+}
+
+// ============ BOARD RENDER ============
+function renderBoards() {
+  const wrapper = document.getElementById('boardWrapper');
+  wrapper.innerHTML = '';
+  boardSvgs = [];
+  wrapper.className = state.numBoards === 1 ? 'rows-1' : (state.numBoards === 2 ? 'rows-2' : '');
+  
+  for (let b = 0; b < state.numBoards; b++) {
+    const svgEl = svg('svg', { class: 'board-svg', 'data-bidx': b });
+    wrapper.appendChild(svgEl);
+    boardSvgs.push(svgEl);
+    renderSingleBoard(svgEl, b);
+  }
+  updateZoom();
+}
+
+function updateZoom() {
+  document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
+  document.querySelectorAll('.board-svg').forEach(svgEl => {
+    svgEl.setAttribute('width', LAYOUT.vbW * state.zoom);
+    svgEl.setAttribute('height', LAYOUT.vbH * state.zoom);
+  });
+}
+
+function renderSingleBoard(boardEl, bIdx) {
+  // OPTIMIZACION EXTREMA: Si son más de 4 placas, las placas 5 a 12 no se dibujan.
+  if (state.numBoards > 6 && bIdx > 3) {
+      boardEl.innerHTML = '<text x="100" y="100" fill="#888" font-size="20">PLACA EN REPOSO (Optimización)</text>';
+      return;
+  }
+  boardEl.setAttribute('viewBox', `0 0 ${LAYOUT.vbW} ${LAYOUT.vbH}`);
+  boardEl.setAttribute('width', LAYOUT.vbW * state.zoom);
+  boardEl.setAttribute('height', LAYOUT.vbH * state.zoom);
+  boardEl.innerHTML = '';
+  const bl = svg('text', { x: LAYOUT.gridX0, y: 24, fill: bIdx === 0 ? '#c0392b' : '#555', 'font-size': 16, 'font-weight': 700 });
+  bl.textContent = 'BOARD ' + (bIdx + 1) + (bIdx === 0 ? ' · MASTER MIXER / OUT' : '');
+  boardEl.appendChild(bl);
+
+  boardEl.appendChild(svg('rect', { x: LAYOUT.gridX0 - 10, y: LAYOUT.gridY0 + 5*CELL + 2, width: ROWS_TOTAL*CELL, height: LAYOUT.notch - 4, class: 'notch' }));
+
+  LAYOUT.rails.forEach(r => {
+    boardEl.appendChild(svg('line', { x1:r.x1, y1:r.y, x2:r.x2, y2:r.y, class: r.id.includes('vcc') ? 'rail-line-vcc' : 'rail-line-gnd' }));
+    const t = svg('text', { x:60, y:r.y + 4, fill:r.color, 'font-size':12, 'font-weight':700, 'text-anchor':'end' });
+    t.textContent = r.label; boardEl.appendChild(t);
+  });
+
+  const colLetters = ['A','B','C','D','E','F','G','H','I','J'];
+  for (let c = 0; c < 10; c++) {
+    const idx = c < 5 ? c : c - 5;
+    const y = c < 5 ? LAYOUT.gridY0 + idx*CELL : LAYOUT.gridY0 + 5*CELL + LAYOUT.notch + idx*CELL;
+    const t = svg('text', { x: LAYOUT.gridX0 - 20, y: y + 3, class: 'col-label', 'text-anchor': 'middle' });
+    t.textContent = colLetters[c]; boardEl.appendChild(t);
+  }
+
+  for (let r = 0; r < ROWS_TOTAL; r++) {
+    if (r % 2 !== 0 && r !== ROWS_TOTAL - 1) continue;
+    const t = svg('text', { x: LAYOUT.gridX0 + r*CELL, y: LAYOUT.gridY0 - 20, class: 'row-label' });
+    t.textContent = r + 1; boardEl.appendChild(t);
+  }
+
+  for (let r = 0; r < ROWS_TOTAL; r++) {
+    for (let c = 0; c < 10; c++) {
+      const half = c < 5 ? 'top' : 'bottom';
+      const col = c < 5 ? c : c - 5;
+      const xy = LAYOUT.pinXY({ row:r, half, col });
+      boardEl.appendChild(svg('circle', { cx:xy.x, cy:xy.y, r:5, class:'hole', 'data-row':r, 'data-half':half, 'data-col':col, 'data-bidx': bIdx }));
+    }
+  }
+
+  LAYOUT.rails.forEach(r => {
+    for (let i = 0; i < ROWS_TOTAL; i++) {
+      const xy = LAYOUT.pinXY({ rail:r.id, col:i });
+      boardEl.appendChild(svg('circle', { cx:xy.x, cy:xy.y, r:5, class: 'hole ' + (r.id.includes('vcc') ? 'vcc' : 'gnd'), 'data-rail':r.id, 'data-col':i, 'data-bidx': bIdx }));
+    }
+  });
+
+  boardEl.appendChild(svg('g', { id:`wiresLayer-${bIdx}`, class:'wires-layer' }));
+  boardEl.appendChild(svg('g', { id:`compsLayer-${bIdx}`, class:'comps-layer' }));
+  boardEl.appendChild(svg('g', { id:`previewLayer-${bIdx}`, class:'preview-layer' }));
+}
+
+function renderAllBoards() {
+  renderBoards();
+  renderAllDynamic();
+}
+
+// ============ RENDER DYNAMIC ============
+function renderAllDynamic() { renderWires(); renderComponents(); }
+
+function jumperPath(p1, p2) {
+  const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+  const tension = state.theme.cableTension !== undefined ? state.theme.cableTension : 0.5;
+  const sag = dist * (0.6 - tension * 0.5); 
+  const mx = (p1.x + p2.x) / 2;
+  const my = (p1.y + p2.y) / 2 + sag; // Always sag downwards
+  return `M${p1.x},${p1.y} Q${mx},${my} ${p2.x},${p2.y}`;
+}
+
+function renderWires() {
+  document.querySelectorAll('.wires-layer').forEach(l => l.innerHTML = '');
+  
+  state.components.forEach(c => {
+    if (c.type !== 'JUMPER') return;
+    const layer = document.getElementById(`wiresLayer-${c.boardIdx}`);
+    if (!layer) return;
+    const p1 = pinXY(c.pins[0]), p2 = pinXY(c.pins[1]);
+    const color = state.theme.cableColors[c.colorIndex] || state.theme.accent2;
+    const path = svg('path', { d:jumperPath(p1, p2), class:'wire', stroke:color, 'data-id':c.id });
+    path.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); removeComponent(c.id); });
+    path.addEventListener('dblclick', e => { e.preventDefault(); e.stopPropagation(); removeComponent(c.id); });
+    layer.appendChild(path);
+  });
+}
+
+function renderComponents() {
+  document.querySelectorAll('.comps-layer').forEach(l => l.innerHTML = '');
+  
+  state.components.forEach(c => {
+    const layer = document.getElementById(`compsLayer-${c.boardIdx}`);
+    if (!layer) return;
+    const def = COMPONENTS[c.type];
+    if (def.kind === 'wire') return;
+    if (def.pins >= 8) layer.appendChild(renderIC(c, def));
+    else if (def.kind === 'OUT') layer.appendChild(renderOUT(c, def));
+    else layer.appendChild(renderPassive(c, def));
+  });
+}
+
+function internalsSVG(kind) {
+  const s = [];
+  s.push('<svg viewBox="0 0 200 70" xmlns="http://www.w3.org/2000/svg">');
+  s.push('<defs><linearGradient id="wireGrad" x1="0" x2="1"><stop offset="0" stop-color="#ff9500" stop-opacity=".7"/><stop offset="1" stop-color="#e8b824" stop-opacity=".7"/></linearGradient></defs>');
+  if (kind === 'VCO') {
+    s.push('<path d="M10,50 L30,50 Q40,50 40,30 L60,30" stroke="url(#wireGrad)" stroke-width="1.5" fill="none"/>');
+    s.push('<path d="M60,30 L80,30 Q90,30 90,50 L110,50" stroke="url(#wireGrad)" stroke-width="1.5" fill="none"/>');
+    s.push('<rect x="60" y="20" width="20" height="20" fill="none" stroke="#ff9500" stroke-width="1"/>');
+    s.push('<text x="70" y="35" text-anchor="middle" fill="#ff9500" font-size="7">U1A</text>');
+    s.push('<circle cx="130" cy="30" r="6" fill="none" stroke="#e8b824" stroke-width="1"/>');
+    s.push('<path d="M124,30 L136,30" stroke="#e8b824" stroke-width="1"/>');
+    s.push('<text x="130" y="33" text-anchor="middle" fill="#e8b824" font-size="6">C</text>');
+    s.push('<path d="M150,50 L180,50" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+    s.push('<rect x="165" y="44" width="12" height="12" fill="none" stroke="#e74c3c" stroke-width="1"/>');
+    s.push('<text x="171" y="53" text-anchor="middle" fill="#e74c3c" font-size="6">P</text>');
+  } else if (kind === 'VCF' || kind === 'VCA') {
+    s.push('<path d="M10,35 L50,35" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+    s.push('<polygon points="50,20 50,50 80,40 80,30" fill="none" stroke="#3498db" stroke-width="1"/>');
+    s.push('<text x="65" y="38" text-anchor="middle" fill="#3498db" font-size="6">OTA</text>');
+    s.push('<path d="M80,35 L120,35" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+    s.push('<circle cx="130" cy="35" r="6" fill="none" stroke="#e8b824" stroke-width="1"/>');
+    s.push('<path d="M124,35 L136,35" stroke="#e8b824" stroke-width="1"/>');
+    s.push('<path d="M140,35 L180,35" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+    s.push('<path d="M65,35 L65,55 L100,55 L100,35" stroke="#888" stroke-width=".8" stroke-dasharray="2,2" fill="none"/>');
+    s.push('<text x="100" y="65" text-anchor="middle" fill="#888" font-size="6">CV</text>');
+  } else if (kind === 'DIST') {
+    s.push('<path d="M10,35 L40,35" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+    s.push('<polygon points="40,20 40,50 70,45 70,25" fill="none" stroke="#c0392b" stroke-width="1"/>');
+    s.push('<path d="M55,25 L55,15 M55,45 L55,55" stroke="#c0392b" stroke-width="1.5"/>');
+    s.push('<text x="55" y="38" text-anchor="middle" fill="#c0392b" font-size="6">OP</text>');
+    s.push('<path d="M70,35 L110,35" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+    s.push('<polygon points="115,32 125,32 120,38" fill="#c0392b"/>');
+    s.push('<polygon points="115,38 125,38 120,32" fill="#c0392b"/>');
+    s.push('<text x="120" y="50" text-anchor="middle" fill="#c0392b" font-size="5">D1</text>');
+    s.push('<path d="M125,35 L180,35" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+  } else if (kind === 'ENV') {
+    s.push('<path d="M10,50 L40,50 L40,20 L60,20 L60,35 L90,35 L90,50 L120,50" stroke="url(#wireGrad)" stroke-width="1.5" fill="none"/>');
+    s.push('<text x="50" y="15" text-anchor="middle" fill="#ffcc00" font-size="6">A</text>');
+    s.push('<text x="75" y="30" text-anchor="middle" fill="#ffcc00" font-size="6">S</text>');
+    s.push('<text x="105" y="45" text-anchor="middle" fill="#ffcc00" font-size="6">R</text>');
+    s.push('<circle cx="150" cy="35" r="6" fill="none" stroke="#e8b824" stroke-width="1"/>');
+    s.push('<text x="150" y="38" text-anchor="middle" fill="#e8b824" font-size="6">C</text>');
+  } else if (kind === 'DELAY' || kind === 'CHORUS' || kind === 'REVERB') {
+    s.push('<path d="M10,35 L30,35" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+    s.push('<rect x="30" y="20" width="40" height="30" fill="none" stroke="#16a085" stroke-width="1"/>');
+    s.push('<text x="50" y="38" text-anchor="middle" fill="#16a085" font-size="6">DSP</text>');
+    s.push('<path d="M70,35 L100,35" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+    s.push('<path d="M100,35 L120,35 Q130,35 130,25 L150,25" stroke="url(#wireGrad)" stroke-width="1.5" fill="none"/>');
+    s.push('<path d="M130,35 L150,35" stroke="#888" stroke-width=".8" stroke-dasharray="2,2"/>');
+    s.push('<circle cx="160" cy="25" r="5" fill="none" stroke="#e8b824" stroke-width="1"/>');
+    s.push('<text x="160" y="27" text-anchor="middle" fill="#e8b824" font-size="5">LFO</text>');
+  } else if (kind === 'CLOCK' || kind === 'SEQ' || kind === 'RUNRESET') {
+    s.push('<path d="M10,30 L20,30 L20,20 L30,20 L30,30 L40,30" stroke="url(#wireGrad)" stroke-width="1.5" fill="none"/>');
+    for (let i = 0; i < 4; i++) {
+      s.push(`<rect x="${45+i*30}" y="25" width="20" height="20" fill="none" stroke="#2980b9" stroke-width="1"/>`);
+      s.push(`<text x="${55+i*30}" y="38" text-anchor="middle" fill="#2980b9" font-size="6">${i+1}</text>`);
+    }
+    s.push('<path d="M10,55 L180,55" stroke="#888" stroke-width=".8" stroke-dasharray="2,2"/>');
+  } else if (kind === 'MIXER') {
+    for (let i = 0; i < 3; i++) {
+      s.push(`<path d="M10,${20+i*15} L60,${20+i*15}" stroke="url(#wireGrad)" stroke-width="1.5"/>`);
+      s.push(`<rect x="40" y="${14+i*15}" width="10" height="10" fill="none" stroke="#f1c40f" stroke-width="1"/>`);
+    }
+    s.push('<path d="M70,50 L100,50" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+    s.push('<text x="85" y="45" text-anchor="middle" fill="#f1c40f" font-size="6">SUM</text>');
+    s.push('<path d="M100,50 L160,50" stroke="url(#wireGrad)" stroke-width="1.5"/>');
+  } else if (kind === 'SCOPE') {
+    s.push('<rect x="10" y="10" width="180" height="50" fill="#0a0a0a" stroke="#2ecc71" stroke-width="1"/>');
+    s.push('<path d="M10,35 L190,35" stroke="#333" stroke-width="1"/>');
+    s.push('<path d="M100,10 L100,60" stroke="#333" stroke-width="1"/>');
+    s.push('<path d="M20,45 Q40,10 60,40 T100,30 T140,50 T180,25" stroke="#00ff00" stroke-width="1.5" fill="none"/>');
+  } else {
+    s.push('<rect x="20" y="15" width="160" height="40" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="3,3"/>');
+    s.push('<text x="100" y="40" text-anchor="middle" fill="#666" font-size="8">CIRCUIT</text>');
+  }
+  s.push('</svg>');
+  return s.join('');
+}
+
+function renderIC(c, def) {
+  const b = LAYOUT.icBounds(c.originRow, def.pins);
+  const g = svg('g', { 'data-id': c.id });
+  
+  const bHeight = b.y2 - b.y1;
+  const bCenterY = b.y1 + bHeight/2;
+
+  Object.values(c.pins).forEach(pin => {
+    if (!pin) return;
+    const p = pinXY(pin);
+    const isRight = pin.col === 4;
+    const bodyEdge = { x: isRight ? b.x2 - 6 : b.x1 + 6, y: p.y };
+    g.appendChild(svg('line', { x1:bodyEdge.x, y1:bodyEdge.y, x2:p.x, y2:p.y, class:'ic-pin-stub', stroke:def.color }));
+  });
+
+  g.appendChild(svg('rect', { x:b.x1, y:b.y1, width:b.x2-b.x1, height:bHeight, rx:6, class:'ic-body' }));
+  g.appendChild(svg('path', { d:`M${b.x1+6},${b.y1} A6,6 0 0,0 ${b.x1+6},${b.y1+12}`, class:'ic-notch' }));
+
+  const cx = (b.x1 + b.x2) / 2;
+  
+  if (c.type === 'SCOPE') {
+    const sw = b.x2 - b.x1 - 12;
+    const sh = bHeight - 24;
+    const sx = b.x1 + 6;
+    const sy = b.y1 + 12;
+    g.appendChild(svg('rect', { x: sx, y: sy, width: sw, height: sh, fill: '#050505', stroke: '#222', rx: 2 }));
+    for(let i=1; i<4; i++){
+        g.appendChild(svg('line', { x1: sx, y1: sy + (sh/4)*i, x2: sx+sw, y2: sy + (sh/4)*i, stroke: '#151515' }));
+        g.appendChild(svg('line', { x1: sx + (sw/4)*i, y1: sy, x2: sx + (sw/4)*i, y2: sy+sh, stroke: '#151515' }));
+    }
+    for (let ch = 1; ch <= 4; ch++) {
+      g.appendChild(svg('path', { id: `scope-ch${ch}-${c.id}`, d: '', stroke: ['#00ff00', '#ffff00', '#00ffff', '#ff00ff'][ch-1], 'stroke-width': 1.5, fill: 'none' }));
+    }
+  } else {
+    const lbl = svg('text', { x:cx, y:bCenterY + 4, class:'ic-label', fill:def.color });
+    lbl.textContent = def.icon;
+    g.appendChild(lbl);
+  }
+
+  const intG = svg('g', { class: 'ic-internals' });
+  const intForeign = document.createElementNS(NS, 'foreignObject');
+  intForeign.setAttribute('x', b.x1 + 4);
+  intForeign.setAttribute('y', b.y1 + 4);
+  intForeign.setAttribute('width', b.x2 - b.x1 - 8);
+  intForeign.setAttribute('height', bHeight - 8);
+  const intDiv = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
+  intDiv.style.cssText = 'width:100%;height:100%;background:rgba(0,0,0,0.9);border-radius:4px;display:flex;align-items:center;justify-content:center;padding:4px;';
+  intDiv.innerHTML = internalsSVG(c.type);
+  intForeign.appendChild(intDiv);
+  intG.appendChild(intForeign);
+  g.appendChild(intG);
+
+  const powered = isPowered(c);
+  g.appendChild(svg('circle', { cx: b.x2 - 10, cy: b.y1 + 10, r:3, class:'ic-power-dot', fill: powered ? '#30d158' : '#444' }));
+
+  if (c.type === 'CLOCK' || c.type === 'RUNRESET' || c.type === 'SEQ') {
+    g.appendChild(svg('circle', { cx: b.x1 + 10, cy: b.y1 + 10, r:3, class:'ic-clock-led', fill:'#333', 'data-led':'1' }));
+  }
+
+  g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); removeComponent(c.id); });
+  return g;
+}
+
+function renderPassive(c, def) {
+  const p1 = pinXY(c.pins[0]), p2 = pinXY(c.pins[1]);
+  const mx = (p1.x + p2.x)/2, my = (p1.y + p2.y)/2;
+  const ang = Math.atan2(p2.y-p1.y, p2.x-p1.x) * 180/Math.PI;
+  const g = svg('g', { 'data-id':c.id, transform:`translate(${mx},${my}) rotate(${ang})` });
+  g.appendChild(svg('rect', { x:-13, y:-6, width:26, height:12, rx:2, class:'passive-body', fill:def.color }));
+  const t = svg('text', { x:0, y:3, class:'passive-label' });
+  t.textContent = def.icon; g.appendChild(t);
+  g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); removeComponent(c.id); });
+  return g;
+}
+
+function renderOUT(c, def) {
+  const p = pinXY(c.pins[0]);
+  const g = svg('g', { 'data-id':c.id });
+  g.appendChild(svg('circle', { cx:p.x, cy:p.y, r:11, class:'out-jack', fill:def.color }));
+  const t = svg('text', { x:p.x, y:p.y+3, class:'out-label' });
+  t.textContent = 'OUT'; g.appendChild(t);
+  g.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); removeComponent(c.id); });
+  return g;
+}
+
+// ============ KNOB HELPERS ============
+function createKnobElement(def, value, onChange, onCommit) {
+  const wrap = document.createElement('div');
+  wrap.className = 'html-knob';
+  const rot = document.createElement('div');
+  rot.className = 'knob-rot';
+  const ind = document.createElement('div');
+  ind.className = 'knob-ind';
+  rot.appendChild(ind);
+  const lbl = document.createElement('div');
+  lbl.className = 'knob-label'; lbl.textContent = def.label;
+  const val = document.createElement('div');
+  val.className = 'knob-value';
+  const quant = v => Math.max(def.min, Math.min(def.max, def.int ? Math.round(v) : v));
+
+  function update(v) {
+    const t = (v - def.min) / (def.max - def.min);
+    ind.style.transform = `translateX(-50%) rotate(${-135 + t*270}deg)`;
+    val.textContent = formatKnobValue(v, def);
+  }
+  function apply(v) { value = v; update(v); onChange(v); }
+  update(value);
+
+  let drag = false, sy = 0, sv = value, moved = false;
+  rot.addEventListener('pointerdown', e => {
+    drag = true; moved = false; sy = e.clientY; sv = value;
+    try { rot.setPointerCapture(e.pointerId); } catch(_) {}
+    e.stopPropagation(); e.preventDefault();
+  });
+  rot.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dy = sy - e.clientY;
+    const nv = quant(sv + (dy / 130) * (def.max - def.min));
+    if (nv !== value) { moved = true; apply(nv); }
+  });
+  const end = e => {
+    if (!drag) return;
+    drag = false;
+    try { rot.releasePointerCapture(e.pointerId); } catch(_) {}
+    if (moved && onCommit) onCommit();
+  };
+  rot.addEventListener('pointerup', end);
+  rot.addEventListener('pointercancel', end);
+  rot.addEventListener('wheel', e => {
+    e.preventDefault(); e.stopPropagation();
+    const step = def.int ? 1 : (def.max - def.min) / 50;
+    const nv = quant(value + (e.deltaY < 0 ? step : -step));
+    if (nv !== value) { apply(nv); if (onCommit) onCommit(); }
+  }, { passive: false });
+  rot.addEventListener('dblclick', e => {
+    apply(def.def); if (onCommit) onCommit(); e.stopPropagation();
+  });
+
+  wrap.appendChild(rot); wrap.appendChild(lbl); wrap.appendChild(val);
+  wrap._update = update;
+  wrap._getValue = () => value;
+  return wrap;
+}
+
+function bindKnob(compId, key) {
+  return {
+    change: v => {
+      const c = state.components.find(x => x.id === compId);
+      if (!c) return;
+      c[key] = v;
+      applyParams(c);
+    },
+    commit: () => pushHistory()
+  };
+}
+
+// ============ HOVER INTERNALS OVERLAY ============
+const overlay = document.getElementById('internalsOverlay');
+let hoverHideTimer = null;
+
+document.getElementById('boardWrapper').addEventListener('mouseover', e => {
+  if (state.rackMode) return;
+  const g = e.target.closest && e.target.closest('g[data-id]');
+  if (!g) return;
+  const ic = state.components.find(c => c.id === g.dataset.id);
+  if (!ic) return;
+  const def = COMPONENTS[ic.type];
+  if (!def || !def.knobs || !def.knobs.length) return;
+  if (state.hoveredIC === ic.id) { clearTimeout(hoverHideTimer); return; }
+  showInternals(ic, def, g);
+});
+document.getElementById('boardWrapper').addEventListener('mouseout', e => {
+  if (state.rackMode) return;
+  const g = e.target.closest && e.target.closest('g[data-id]');
+  if (!g) return;
+  if (state.hoveredIC === g.dataset.id) {
+    clearTimeout(hoverHideTimer);
+    hoverHideTimer = setTimeout(hideInternals, 180);
+  }
+});
+
+function showInternals(ic, def, icEl) {
+  state.hoveredIC = ic.id;
+  overlay.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'int-title';
+  title.textContent = def.label;
+  overlay.appendChild(title);
+
+  const sch = document.createElement('div');
+  sch.className = 'int-schematic';
+  sch.innerHTML = internalsSVG(ic.type);
+  overlay.appendChild(sch);
+
+  const knobs = document.createElement('div');
+  knobs.className = 'int-knobs';
+  def.knobs.forEach(k => {
+    const kb = bindKnob(ic.id, k.id);
+    const el = createKnobElement(k, ic[k.id] ?? k.def, kb.change, kb.commit);
+    knobs.appendChild(el);
+  });
+  overlay.appendChild(knobs);
+
+  if (ic.type === 'SEQ') {
+    if (!ic.seqSteps) ic.seqSteps = Array(16).fill(false);
+    const grid = document.createElement('div');
+    grid.className = 'int-steps';
+    for (let i = 0; i < 16; i++) {
+      const b = document.createElement('button');
+      b.style.background = ic.seqSteps[i] ? 'var(--c1)' : 'var(--bd)';
+      b.onclick = () => {
+        ic.seqSteps[i] = !ic.seqSteps[i];
+        b.style.background = ic.seqSteps[i] ? 'var(--c1)' : 'var(--bd)';
+        pushHistory();
+      };
+      grid.appendChild(b);
+    }
+    overlay.appendChild(grid);
+  }
+
+  const r = icEl.getBoundingClientRect();
+  let px = r.left + r.width/2 - 130;
+  let py = r.bottom + 8;
+  px = Math.max(10, Math.min(px, window.innerWidth - 320));
+  py = Math.max(56, Math.min(py, window.innerHeight - 260));
+  overlay.style.left = px + 'px';
+  overlay.style.top = py + 'px';
+  overlay.classList.add('show');
+
+  overlay.onmouseenter = () => { clearTimeout(hoverHideTimer); };
+  overlay.onmouseleave = () => { hoverHideTimer = setTimeout(hideInternals, 180); };
+}
+
+function hideInternals() {
+  overlay.classList.remove('show');
+  state.hoveredIC = null;
+}
+
+// ============ RACK MODE ============
+function toggleRackMode() {
+  state.rackMode = !state.rackMode;
+  document.body.classList.toggle('rack-mode', state.rackMode);
+  document.getElementById('bRack').classList.toggle('on', state.rackMode);
+  if (state.rackMode) {
+    hideInternals();
+    renderRackMode();
+  } else {
+    document.getElementById('rackKnobsPanel').innerHTML = '';
+  }
+  updateBodyOrientation();
+}
+
+function renderRackMode() {
+  if (!state.rackMode) return;
+  renderKnobsPanel();
+}
+
+function renderKnobsPanel() {
+  const panel = document.getElementById('rackKnobsPanel');
+  panel.innerHTML = '';
+
+  const header = document.createElement('div');
+  header.className = 'rack-panel-header';
+  const title = document.createElement('span');
+  title.textContent = 'RACK CONTROLS';
+  title.style.cssText = 'font-size:11px;color:var(--c1);font-weight:700;letter-spacing:2px;';
+  header.appendChild(title);
+
+  const arrowBtn = document.createElement('button');
+  arrowBtn.className = 'act';
+  arrowBtn.style.cssText = 'width:auto;padding:4px 12px;font-size:10px;margin:0;border-radius:12px;';
+  arrowBtn.textContent = state.rackPanelPos === 'top' ? '⬇ MOVE DOWN' : '⬆ MOVE UP';
+  arrowBtn.onclick = () => {
+    state.rackPanelPos = state.rackPanelPos === 'top' ? 'bottom' : 'top';
+    updateBodyOrientation();
+    renderKnobsPanel();
+  };
+  header.appendChild(arrowBtn);
+  
+  panel.appendChild(header);
+
+  const content = document.createElement('div');
+  content.className = 'rack-panel-content';
+
+  state.components.forEach(c => {
+    const def = COMPONENTS[c.type];
+    if (!def.knobs || !def.knobs.length) return;
+    const group = document.createElement('div');
+    group.className = 'rack-knob-group';
+    const gtitle = document.createElement('div');
+    gtitle.className = 'group-title';
+    gtitle.innerHTML = `<span style="color:${def.color}">${def.icon}</span><span>${def.label} (B${c.boardIdx + 1})</span>`;
+    group.appendChild(gtitle);
+    const row = document.createElement('div');
+    row.className = 'knob-row';
+    def.knobs.forEach(k => {
+      const kb = bindKnob(c.id, k.id);
+      const el = createKnobElement(k, c[k.id] ?? k.def, kb.change, kb.commit);
+      row.appendChild(el);
+    });
+    group.appendChild(row);
+
+    if (c.type === 'SEQ') {
+      if (!c.seqSteps) c.seqSteps = Array(16).fill(false);
+      const grid = document.createElement('div');
+      grid.style.cssText = 'display:grid;grid-template-columns:repeat(8, 1fr);gap:2px;margin-top:6px;width:100%;';
+      for (let i = 0; i < 16; i++) {
+        const b = document.createElement('button');
+        b.style.cssText = `height:14px;border-radius:50%;border:1px solid var(--bd);padding:0;cursor:pointer;background:${c.seqSteps[i] ? 'var(--c1)' : 'var(--bd)'};`;
+        b.onclick = () => {
+          c.seqSteps[i] = !c.seqSteps[i];
+          b.style.background = c.seqSteps[i] ? 'var(--c1)' : 'var(--bd)';
+          pushHistory();
+        };
+        grid.appendChild(b);
+      }
+      group.appendChild(grid);
+    }
+
+    content.appendChild(group);
+  });
+
+  panel.appendChild(content);
+}
+
+// ============ NETS / POWER ============
+function rebuildNets() {
+  uf = new UnionFind();
+  for (let b = 0; b < state.numBoards; b++) {
+      uf.union(b + ':rail:VCC', b + ':rail:VCC');
+      uf.union(b + ':rail:GND', b + ':rail:GND');
+  }
+  state.components.forEach(c => { 
+      if (c.type === 'JUMPER') {
+          uf.union(pinKey(c.pins[0], c.boardIdx), pinKey(c.pins[1], c.boardIdx)); 
+      }
+  });
+}
+function isPowered(ic) {
+  const def = COMPONENTS[ic.type];
+  if (!def.power) return false;
+  const b = ic.boardIdx;
+  return uf.find(pinKey(ic.pins[def.power.VCC], b)) === uf.find(b + ':rail:VCC') &&
+         uf.find(pinKey(ic.pins[def.power.GND], b)) === uf.find(b + ':rail:GND');
+}
+function isShortCircuited() { 
+  for (let b = 0; b < state.numBoards; b++) {
+      if (uf.find(b + ':rail:VCC') === uf.find(b + ':rail:GND')) return true;
+  }
+  return false;
+}
+
+// ============ PALETTE ============
+function buildPalette() {
+  const pal = document.getElementById('palette');
+  pal.innerHTML = '';
+  const groups = {};
+  Object.entries(COMPONENTS).forEach(([k, def]) => { (groups[def.group] = groups[def.group] || []).push([k, def]); });
+  Object.entries(groups).forEach(([gname, items]) => {
+    const h = document.createElement('h3'); h.textContent = gname; pal.appendChild(h);
+    items.forEach(([k, def]) => {
+      const btn = document.createElement('button');
+      btn.className = 'pal-btn'; btn.dataset.type = k;
+      btn.innerHTML = `<span class="pal-icon">${def.icon}</span><span class="pal-name">${def.label}<small>${def.sub}</small></span>`;
+      btn.onclick = () => selectPaletteItem(k);
+      pal.appendChild(btn);
+    });
+  });
+}
+function selectPaletteItem(type) {
+  state.selectedType = state.selectedType === type ? null : type;
+  state.pendingFirstPin = null;
+  clearPreview();
+  document.querySelectorAll('.pal-btn').forEach(b => b.classList.toggle('selected', b.dataset.type === state.selectedType));
+  document.querySelectorAll('.board-svg').forEach(b => b.classList.toggle('placing', !!state.selectedType));
+}
+
+// ============ PIN INTERACTION ============
+function extractPin(hole) {
+  if (hole.dataset.rail) return { rail: hole.dataset.rail, col: parseInt(hole.dataset.col) };
+  return { row: parseInt(hole.dataset.row), half: hole.dataset.half, col: parseInt(hole.dataset.col) };
+}
+
+let dragPin = null, dragStartXY = null, dragActive = false, dragBIdx = 0;
+
+document.getElementById('boardWrapper').addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  const hole = e.target.closest('.hole');
+  if (!hole) return;
+  
+  const bIdx = parseInt(hole.dataset.bidx);
+  
+  if (state.selectedType) { handlePinClick(extractPin(hole), bIdx); return; }
+
+  if (state.pointToPoint) {
+      if (!state.pendingFirstPin) {
+          state.pendingFirstPin = { pin: extractPin(hole), bIdx };
+      } else {
+          const p1 = state.pendingFirstPin.pin;
+          const p2 = extractPin(hole);
+          if (state.pendingFirstPin.bIdx === bIdx && pinKey(p1, bIdx) !== pinKey(p2, bIdx)) {
+              state.components.push({ id:'c'+(state.nextId++), type:'JUMPER', pins:[p1, p2], colorIndex: (Math.random() < 0.72 ? Math.floor(Math.random()*6) : state.activeCableColorIndex), boardIdx: bIdx });
+              rebuildNets(); renderAllDynamic(); updateAudio(); pushHistory();
+              if (state.rackMode) renderRackMode();
+          }
+          state.pendingFirstPin = null;
+      }
+      return;
+  }
+
+  dragPin = extractPin(hole); dragStartXY = pinXY(dragPin); dragActive = false; dragBIdx = bIdx;
+  const startX = e.clientX, startY = e.clientY;
+  
+  const onMove = ev => {
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if (!dragActive && Math.hypot(dx, dy) > 6) dragActive = true;
+    if (dragActive) {
+      const rect = boardSvgs[bIdx].getBoundingClientRect();
+      const vb = boardSvgs[bIdx].viewBox.baseVal;
+      const mx = (ev.clientX - rect.left) * (vb.width / rect.width) / state.zoom;
+      const my = (ev.clientY - rect.top) * (vb.height / rect.height) / state.zoom;
+      drawDragPreview(mx, my, bIdx);
+    }
+  };
+  const onUp = ev => {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    clearPreview();
+    if (dragActive) {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const hole2 = el && el.closest ? el.closest('.hole') : null;
+      if (hole2 && parseInt(hole2.dataset.bidx) === dragBIdx) {
+        const pin2 = extractPin(hole2);
+        if (pinKey(pin2, bIdx) !== pinKey(dragPin, bIdx)) {
+          state.components.push({ id:'c'+(state.nextId++), type:'JUMPER', pins:[dragPin, pin2], colorIndex: (Math.random() < 0.72 ? Math.floor(Math.random()*6) : state.activeCableColorIndex), boardIdx: bIdx });
+          rebuildNets(); renderAllDynamic(); updateAudio(); pushHistory();
+          if (state.rackMode) renderRackMode();
+        }
+      }
+    }
+    dragPin = null; dragActive = false;
+  };
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+});
+
+function drawDragPreview(mx, my, bIdx) {
+  const layer = document.getElementById(`previewLayer-${bIdx}`);
+  if (!layer || !dragStartXY) return;
+  layer.innerHTML = '';
+  layer.appendChild(svg('path', { d: jumperPath(dragStartXY, { x: mx, y: my }), class:'preview' }));
+}
+
+function handlePinClick(pin, bIdx) {
+  const def = COMPONENTS[state.selectedType];
+  if (def.pins === 1) { placeOUT(pin, bIdx); selectPaletteItem(null); return; }
+  if (def.pins >= 8) { placeIC(state.selectedType, pin, bIdx); selectPaletteItem(null); return; }
+  if (!state.pendingFirstPin) { state.pendingFirstPin = pin; return; }
+  const p1 = state.pendingFirstPin, p2 = pin;
+  if (pinKey(p1, bIdx) === pinKey(p2, bIdx)) return;
+  state.components.push({ id:'c'+(state.nextId++), type: state.selectedType, pins:[p1, p2], color: state.theme.accent2, boardIdx: bIdx });
+  state.pendingFirstPin = null;
+  clearPreview(); rebuildNets(); renderAllDynamic(); updateAudio(); pushHistory();
+  if (state.rackMode) renderRackMode();
+}
+
+function placeOUT(pin, bIdx) {
+  if (pin.rail) return;
+  const c = { id:'c'+(state.nextId++), type:'OUT', pins:[pin], boardIdx: bIdx };
+  state.components.push(c);
+  initAudioComponent(c);
+  rebuildNets(); renderAllDynamic(); updateAudio(); pushHistory();
+}
+
+function placeIC(type, pin, bIdx) {
+  if (pin.rail) return;
+  const def = COMPONENTS[type];
+  const pinCount = def.pins;
+  let originRow = pin.half === 'top' ? pin.row : pin.row - (pinCount / 2 - 1);
+  
+  if (originRow < 0 || originRow + (pinCount / 2 - 1) >= ROWS_TOTAL) return;
+  
+  const candidate = icPinPositions(originRow, pinCount);
+  for (const comp of state.components) {
+    if (comp.boardIdx === bIdx && COMPONENTS[comp.type].pins >= 8) {
+      for (const p of Object.values(comp.pins)) for (const np of Object.values(candidate))
+        if (p.row === np.row && p.half === np.half && p.col === np.col) return;
+    }
+  }
+  
+  const defaults = {};
+  if (def.knobs) def.knobs.forEach(k => { defaults[k.id] = k.def; });
+  const comp = { id:'c'+(state.nextId++), type, pins:candidate, originRow, ...defaults, seqSteps:Array(16).fill(false), boardIdx: bIdx };
+  state.components.push(comp);
+  initAudioComponent(comp);
+  rebuildNets(); renderAllDynamic(); updateAudio(); pushHistory();
+  if (state.rackMode) renderRackMode();
+}
+
+function clearPreview() {
+  document.querySelectorAll('.preview-layer').forEach(l => l.innerHTML = '');
+}
+
+document.getElementById('boardWrapper').addEventListener('mousemove', e => {
+  if (!state.selectedType || !state.pendingFirstPin) return;
+  const hole = e.target.closest('.hole'); if (!hole) return;
+  const bIdx = parseInt(hole.dataset.bidx);
+  const pin = extractPin(hole);
+  const p1 = pinXY(state.pendingFirstPin), p2 = pinXY(pin);
+  const layer = document.getElementById(`previewLayer-${bIdx}`);
+  if (!layer) return;
+  layer.innerHTML = '';
+  layer.appendChild(svg('path', { d: jumperPath(p1, p2), class:'preview' }));
+});
+
+function removeComponent(id) {
+  const comp = state.components.find(c => c.id === id);
+  if (comp) destroyAudioComponent(comp.id);
+  state.components = state.components.filter(c => c.id !== id);
+  rebuildNets(); renderAllDynamic(); updateAudio(); pushHistory();
+  if (state.rackMode) renderRackMode();
+}
+
+// ============ AUDIO ENGINE ============
+let audioCtx, masterGain, softClip;
+let activeEdges = new Map();
+let cvConnected = new Set();
+let gatePairs = [];
+let flowing = false;
+let nextTickTime = 0, tickCount = 0, schedTimer = null;
+
+const P = (v, d) => (typeof v === 'number' && isFinite(v)) ? v : d;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const TC = 0.03;
+
+function kv(c, id) {
+  const def = COMPONENTS[c.type];
+  const k = def && def.knobs ? def.knobs.find(x => x.id === id) : null;
+  return P(c[id], k ? k.def : 0);
+}
+
+function initAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AC({ latencyHint: 'playback' });
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0;
+  softClip = audioCtx.createWaveShaper();
+  const n = 2048, curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = i * 2 / (n - 1) - 1, a = Math.abs(x);
+    curve[i] = a < 0.6 ? x : Math.sign(x) * (0.6 + 0.4 * Math.tanh((a - 0.6) / 0.4));
+  }
+  softClip.curve = curve;
+  masterGain.connect(softClip);
+  softClip.connect(audioCtx.destination);
+  if (!schedTimer) schedTimer = setInterval(scheduler, 25);
+}
+
+function resumeAudio() {
+  if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().catch(() => {});
+}
+
+function makeImpulseResponse(duration, decay) {
+  const rate = audioCtx.sampleRate;
+  const length = Math.max(1, Math.floor(rate * duration));
+  const impulse = audioCtx.createBuffer(2, length, rate);
+  for (let i = 0; i < 2; i++) {
+    const ch = impulse.getChannelData(i);
+    for (let j = 0; j < length; j++) ch[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / length, decay);
+  }
+  return impulse;
+}
+
+function initAudioComponent(c) {
+  if (state.audioNodes[c.id]) return;
+  const def = COMPONENTS[c.type];
+  if (!def || !audioCtx) return;
+  const S = def.sig || {};
+  const ac = audioCtx;
+  const G = v => { const n = ac.createGain(); n.gain.value = v; return n; };
+  let N = null;
+
+  switch (def.kind) {
+    case 'VCO': {
+      const o1 = ac.createOscillator(), o2 = ac.createOscillator(), o3 = ac.createOscillator();
+      o1.type = 'sawtooth'; o2.type = 'sawtooth'; o3.type = 'square';
+      const g1 = G(0.5), g2 = G(0.5), g3 = G(0), outG = G(0), fmGain = G(0), cvIn = G(1200);
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 20000;
+      o1.connect(g1); o2.connect(g2); o3.connect(g3);
+      g1.connect(outG); g2.connect(outG); g3.connect(outG);
+      o2.connect(fmGain); fmGain.connect(o1.frequency);
+      cvIn.connect(o1.detune); cvIn.connect(o2.detune); cvIn.connect(o3.detune);
+      outG.connect(lp);
+      o1.start(); o2.start(); o3.start();
+      N = { in: { [S.CV]: cvIn }, out: { [S.OUT]: lp }, o1, o2, o3, g3, fmGain, lp, outG, stop: [o1, o2, o3] };
+      break;
+    }
+    case 'LFO': {
+      const osc = ac.createOscillator(); osc.type = 'sine';
+      const sc = G(0); osc.connect(sc); osc.start();
+      N = { out: { [S.OUT]: sc }, osc, sc, stop: [osc] };
+      break;
+    }
+    case 'ENV': {
+      const cs = ac.createConstantSource(); cs.offset.value = 0; cs.start();
+      N = { out: { [S.OUT]: cs }, cs, stop: [cs] };
+      break;
+    }
+    case 'VCF': {
+      const f = ac.createBiquadFilter(); f.type = 'lowpass';
+      const cvIn = G(350); cvIn.connect(f.frequency);
+      N = { in: { [S.IN]: f, [S.CV]: cvIn }, out: { [S.OUT]: f }, f, cvIn };
+      break;
+    }
+    case 'VCA': {
+      const v = G(0), cv = G(0); cv.connect(v.gain);
+      N = { in: { [S.IN]: v, [S.CV]: cv }, out: { [S.OUT]: v }, v, cv };
+      break;
+    }
+    case 'PITCH': {
+      const cs = ac.createConstantSource(); cs.offset.value = 0; cs.start();
+      const sum = G(1); cs.connect(sum);
+      N = { in: { [S.IN]: sum }, out: { [S.OUT]: sum }, cs, sum, stop: [cs] };
+      break;
+    }
+    case 'DIST': {
+      const pre = G(1), post = G(0.8), ws = ac.createWaveShaper();
+      const n = 2048, curve = new Float32Array(n);
+      for (let i = 0; i < n; i++) { const x = i * 2 / (n - 1) - 1; curve[i] = Math.tanh(3 * x) / Math.tanh(3); }
+      ws.curve = curve; ws.oversample = '4x';
+      pre.connect(ws); ws.connect(post);
+      N = { in: { [S.IN]: pre }, out: { [S.OUT]: post }, pre, post };
+      break;
+    }
+    case 'DELAY': {
+      const inp = G(1), dry = G(0.5), wet = G(0.5), out = G(1), fb = G(0.4);
+      const d = ac.createDelay(2);
+      inp.connect(dry); dry.connect(out);
+      inp.connect(d); d.connect(wet); wet.connect(out);
+      d.connect(fb); fb.connect(d);
+      N = { in: { [S.IN]: inp }, out: { [S.OUT]: out }, d, fb, dry, wet };
+      break;
+    }
+    case 'REVERB': {
+      const inp = G(1), dry = G(1), wet = G(0.5), out = G(1), conv = ac.createConvolver();
+      inp.connect(dry); dry.connect(out);
+      inp.connect(conv); conv.connect(wet); wet.connect(out);
+      N = { in: { [S.IN]: inp }, out: { [S.OUT]: out }, dry, wet, conv, irKey: '', irTimer: null };
+      break;
+    }
+    case 'CHORUS': {
+      const inp = G(1), dry = G(0.6), wet = G(0.6), out = G(1);
+      const d = ac.createDelay(0.1); d.delayTime.value = 0.02;
+      const lfo = ac.createOscillator(); lfo.type = 'sine';
+      const lfoG = G(0.004);
+      lfo.connect(lfoG); lfoG.connect(d.delayTime); lfo.start();
+      inp.connect(dry); dry.connect(out);
+      inp.connect(d); d.connect(wet); wet.connect(out);
+      N = { in: { [S.IN]: inp }, out: { [S.OUT]: out }, d, lfo, lfoG, stop: [lfo] };
+      break;
+    }
+    case 'COMP': {
+      const comp = ac.createDynamicsCompressor();
+      N = { in: { [S.IN]: comp }, out: { [S.OUT]: comp }, comp };
+      break;
+    }
+    case 'REC': {
+      const inp = G(1), out = G(1), dest = ac.createMediaStreamDestination();
+      inp.connect(out); inp.connect(dest);
+      N = { in: { [S.IN]: inp }, out: { [S.OUT]: out }, inp, dest };
+      break;
+    }
+    case 'SCOPE': {
+      const outGain = G(1), ins = [G(1), G(1), G(1), G(1)], an = [], bufs = [];
+      for (let i = 0; i < 4; i++) {
+        const a = ac.createAnalyser(); a.fftSize = 8192; a.smoothingTimeConstant = 0;
+        ins[i].connect(a); an.push(a); bufs.push(new Float32Array(8192));
+      }
+      ins[0].connect(outGain);
+      N = { in: { [S.IN1]: ins[0], [S.IN2]: ins[1], [S.IN3]: ins[2], [S.IN4]: ins[3] }, out: { [S.OUT]: outGain }, analysers: an, bufs };
+      break;
+    }
+    case 'MIXER': case 'MIXER12': {
+      const count = def.kind === 'MIXER' ? 5 : 12;
+      const sum = G(1), inN = {}, outN = { [S.OUT]: sum }, vols = [], snds = [], rets = [];
+      for (let i = 1; i <= count; i++) {
+        const v = G(0); v.connect(sum); inN[S['IN' + i]] = v; vols[i] = v;
+        if (def.kind === 'MIXER') {
+          const s = G(0); v.connect(s); outN[S['SEND' + i]] = s; snds[i] = s;
+          const r = G(0); r.connect(sum); inN[S['RET' + i]] = r; rets[i] = r;
+        }
+      }
+      N = { in: inN, out: outN, sum, vols, snds, rets, count };
+      break;
+    }
+    case 'OUT': {
+      N = { in: { 1: G(1) }, out: {} };
+      break;
+    }
+  }
+  if (!N) return;
+  state.audioNodes[c.id] = N;
+  applyParams(c);
+}
+
+function destroyAudioComponent(id) {
+  const N = state.audioNodes[id];
+  if (!N) return;
+  if (N.irTimer) clearTimeout(N.irTimer);
+  (N.stop || []).forEach(o => { try { o.stop(); } catch (_) {} });
+  Object.values(N).forEach(v => { if (v && typeof v.disconnect === 'function') { try { v.disconnect(); } catch (_) {} } });
+  delete state.audioNodes[id];
+}
+
+function applyParams(c) {
+  if (!audioCtx || !c) return;
+  const N = state.audioNodes[c.id];
+  const def = COMPONENTS[c.type];
+  if (!N || !def) return;
+  const now = audioCtx.currentTime;
+  const set = (p, v, tc) => p.setTargetAtTime(v, now, tc || TC);
+  const nyq = audioCtx.sampleRate * 0.45;
+
+  switch (def.kind) {
+    case 'VCO': {
+      const f1 = clamp(kv(c, 'freq') * Math.pow(2, Math.round(kv(c, 'oct')) + kv(c, 'fine') / 1200), 1, nyq);
+      const f2 = clamp(f1 * Math.pow(2, kv(c, 'detune') / 1200), 1, nyq);
+      set(N.o1.frequency, f1); set(N.o2.frequency, f2); set(N.o3.frequency, f2);
+      set(N.g3.gain, clamp(kv(c, 'pwm'), 0, 1));
+      set(N.fmGain.gain, clamp(kv(c, 'fm'), 0, 1000));
+      set(N.lp.frequency, clamp(kv(c, 'lp'), 20, nyq));
+      set(N.outG.gain, clamp(kv(c, 'lvl'), 0, 1));
+      break;
+    }
+    case 'LFO':
+      set(N.osc.frequency, clamp(kv(c, 'rate'), 0.01, 40));
+      set(N.sc.gain, clamp(kv(c, 'scale'), 0, 1));
+      break;
+    case 'PITCH':
+      set(N.cs.offset, kv(c, 'bend') / 12);
+      break;
+    case 'VCF':
+      set(N.f.frequency, clamp(kv(c, 'cutoff'), 20, nyq));
+      set(N.f.Q, clamp(kv(c, 'resonance'), 0.0001, 30));
+      break;
+    case 'VCA': {
+      const g = clamp(kv(c, 'gain'), 0, 1);
+      const cv = cvConnected.has(c.id + ':' + def.sig.CV);
+      set(N.v.gain, cv ? 0 : g, 0.015);
+      set(N.cv.gain, cv ? g : 0, 0.015);
+      break;
+    }
+    case 'DIST': {
+      const pre = clamp(kv(c, 'drive') / 10, 1, 25);
+      set(N.pre.gain, pre);
+      set(N.post.gain, 0.9 / (1 + pre * 0.12));
+      break;
+    }
+    case 'DELAY': {
+      const mix = clamp(kv(c, 'mix'), 0, 1);
+      set(N.d.delayTime, clamp(kv(c, 'time'), 0.01, 1.99), 0.05);
+      set(N.fb.gain, clamp(kv(c, 'fb'), 0, 0.95));
+      set(N.wet.gain, mix); set(N.dry.gain, 1 - mix);
+      break;
+    }
+    case 'REVERB': {
+      const mix = clamp(kv(c, 'mix'), 0, 1);
+      set(N.wet.gain, mix); set(N.dry.gain, 1 - mix * 0.5);
+      scheduleReverbIR(c, N, !N.irKey);
+      break;
+    }
+    case 'CHORUS':
+      set(N.lfo.frequency, clamp(kv(c, 'rate'), 0.05, 10));
+      set(N.lfoG.gain, clamp(kv(c, 'depth'), 0, 1) * 0.008);
+      break;
+    case 'COMP':
+      set(N.comp.threshold, clamp(kv(c, 'threshold'), -100, 0));
+      set(N.comp.ratio, clamp(kv(c, 'ratio'), 1, 20));
+      break;
+    case 'REC':
+      set(N.inp.gain, clamp(kv(c, 'gain'), 0, 2));
+      break;
+    case 'MIXER': case 'MIXER12':
+      for (let i = 1; i <= N.count; i++) {
+        set(N.vols[i].gain, clamp(kv(c, 'vol' + i), 0, 1), 0.02);
+        if (N.snds[i]) set(N.snds[i].gain, clamp(kv(c, 'snd' + i), 0, 1), 0.02);
+        if (N.rets[i]) set(N.rets[i].gain, clamp(kv(c, 'ret' + i), 0, 1), 0.02);
+      }
+      break;
+  }
+}
+
+function scheduleReverbIR(c, N, immediate) {
+  const mode = Math.round(clamp(kv(c, 'mode'), 0, 2));
+  const size = clamp(kv(c, 'size'), 0.5, 4);
+  const key = mode + '|' + size.toFixed(2);
+  if (N.irKey === key) return;
+  if (N.irTimer) clearTimeout(N.irTimer);
+  const build = () => { N.irKey = key; N.irTimer = null; N.conv.buffer = makeImpulseResponse(size, [4, 2, 0.5][mode]); };
+  if (immediate) build(); else N.irTimer = setTimeout(build, 180);
+}
+
+// ---- ENV gate ----
+function envGateOn(env, t) {
+  const N = state.audioNodes[env.id]; if (!N) return;
+  const a = clamp(kv(env, 'attack'), 0.001, 1), d = clamp(kv(env, 'decay'), 0.01, 2), s = clamp(kv(env, 'sustain'), 0, 1);
+  const p = N.cs.offset;
+  p.cancelScheduledValues(t);
+  p.setTargetAtTime(1, t, a / 4);
+  p.setTargetAtTime(s, t + a, d / 4);
+}
+function envGateOff(env, t) {
+  const N = state.audioNodes[env.id]; if (!N) return;
+  const r = clamp(kv(env, 'release'), 0.01, 2);
+  const p = N.cs.offset;
+  p.cancelScheduledValues(t);
+  p.setTargetAtTime(0, t, r / 4);
+}
+
+// ---- Clock / sequencer ----
+function pinNet(c, pin) {
+  const p = c.pins && c.pins[pin];
+  return p ? uf.find(pinKey(p, c.boardIdx)) : null;
+}
+function getMasterClock() {
+  const idx = 0;
+  const ok = c => COMPONENTS[c.type] && COMPONENTS[c.type].kind === 'CLOCK' && isPowered(c);
+  return state.components.find(c => ok(c) && c.boardIdx === idx) || state.components.find(ok);
+}
+function gateActive(src, tick) {
+  const kind = COMPONENTS[src.type].kind;
+  if (kind === 'CLOCK') return true;
+  const len = clamp(Math.round(kv(src, 'length')), 1, 16);
+  if (kind === 'RUNRESET') return tick % len === 0;
+  return !!(src.seqSteps && src.seqSteps[tick % len]);
+}
+function fireTick(t, stepDur) {
+  const tick = tickCount;
+  gatePairs.forEach(g => {
+    const s = state.components.find(c => c.id === g.srcId);
+    const e = state.components.find(c => c.id === g.envId);
+    if (!s || !e) return;
+    if (gateActive(s, tick)) { envGateOn(e, t); envGateOff(e, t + stepDur * 0.55); }
+  });
+  state.seqPos = tick % 16;
+  const delay = Math.max(0, (t - audioCtx.currentTime) * 1000);
+  setTimeout(() => {
+    document.querySelectorAll('[data-led]').forEach(led => {
+      led.setAttribute('fill', '#ffcc00');
+      setTimeout(() => led.setAttribute('fill', '#333'), 60);
+    });
+  }, delay);
+}
+function scheduler() {
+  try {
+    if (!audioCtx || audioCtx.state !== 'running' || !state.powered || !uf) { nextTickTime = 0; return; }
+    const clk = getMasterClock();
+    if (!clk) { nextTickTime = 0; return; }
+    const now = audioCtx.currentTime;
+    if (!nextTickTime || nextTickTime < now - 0.25) nextTickTime = now + 0.05;
+    while (nextTickTime < now + 0.15) {
+      const stepDur = 60 / clamp(kv(clk, 'bpm'), 40, 240) / 4;
+      fireTick(nextTickTime, stepDur);
+      nextTickTime += stepDur;
+      tickCount++;
+    }
+  } catch (_) {}
+}
+
+// ---- Graph ----
+function pushTo(map, k, v) { (map[k] || (map[k] = [])).push(v); }
+
+function rebuildAudio() {
+  if (!audioCtx) return;
+  const ids = new Set(state.components.map(c => c.id));
+  Object.keys(state.audioNodes).forEach(id => { if (!ids.has(id)) destroyAudioComponent(id); });
+  state.components.forEach(c => {
+    const d = COMPONENTS[c.type];
+    if (d && (d.kind === 'OUT' || d.pins >= 8)) initAudioComponent(c);
+  });
+
+  rebuildNets();
+  const active = state.components.filter(c => {
+    // OPTIMIZACION DE AUDIO: Ignorar audio de placas en reposo si hay más de 4
+    if (state.numBoards > 6 && c.boardIdx > 3) return false;
+    const d = COMPONENTS[c.type];
+    return d && (d.power ? isPowered(c) : d.kind === 'OUT');
+  });
+
+  const netMap = {};
+  active.forEach(c => {
+    const def = COMPONENTS[c.type];
+    if (def.kind === 'OUT') {
+      const n = c.pins && c.pins[0] ? uf.find(pinKey(c.pins[0], c.boardIdx)) : null;
+      if (n) pushTo(netMap, n, { c, pin: 1, type: 'in', name: 'IN' });
+      return;
+    }
+    for (const name in (def.sig || {})) {
+      const pin = def.sig[name];
+      const isOut = name === 'OUT' || name.indexOf('SEND') === 0;
+      const isIn = name.indexOf('IN') === 0 || name.indexOf('RET') === 0 || name === 'CV';
+      if (!isOut && !isIn) continue;
+      const n = pinNet(c, pin);
+      if (n) pushTo(netMap, n, { c, pin, type: isOut ? 'out' : 'in', name });
+    }
+  });
+
+  const desired = new Map(), adj = {};
+  cvConnected = new Set();
+  for (const n in netMap) {
+    const outs = netMap[n].filter(x => x.type === 'out'), ins = netMap[n].filter(x => x.type === 'in');
+    outs.forEach(o => ins.forEach(i => {
+      if (o.c.id === i.c.id) return;
+      const oN = state.audioNodes[o.c.id], iN = state.audioNodes[i.c.id];
+      const src = oN && oN.out && oN.out[o.pin], dest = iN && iN.in && iN.in[i.pin];
+      if (!src || !dest) return;
+      desired.set(o.c.id + ':' + o.pin + '>' + i.c.id + ':' + i.pin, { src, dest });
+      if (i.name === 'CV') cvConnected.add(i.c.id + ':' + i.pin);
+      else pushTo(adj, o.c.id, i.c.id);
+    }));
+  }
+
+  const masterIdx = 0;
+  const isMix = c => { const d = COMPONENTS[c.type]; return d && (d.kind === 'MIXER' || d.kind === 'MIXER12'); };
+  const mm = state.components.find(c => isMix(c) && c.boardIdx === masterIdx && isPowered(c));
+  const masterN = mm && state.audioNodes[mm.id] ? state.audioNodes[mm.id] : null;
+  const masterDef = mm ? COMPONENTS[mm.type] : null;
+  const masterBus = masterN ? masterN.sum : null;
+  const outIds = [];
+  const localMixerByBoard = new Map();
+  if (state.syncEnabled && masterN && masterDef) {
+    for (let b = 1; b < state.numBoards; b++) {
+      if (state.numBoards > 6 && b > 3) continue; // SALTEAR PLACAS DORMIDAS
+      const local = state.components.find(c => c.boardIdx === b && isMix(c) && isPowered(c));
+      if (!local) continue;
+      localMixerByBoard.set(b, local);
+      const channel = b + 1;
+      const inputPin = masterDef.sig && masterDef.sig['IN' + channel];
+      const destination = inputPin != null ? masterN.in[inputPin] : null;
+      if (destination) {
+        desired.set(local.id + ':mix>master-channel-' + channel, { src: state.audioNodes[local.id].sum, dest: destination });
+        pushTo(adj, local.id, mm.id);
+      } else if (masterBus) {
+        desired.set(local.id + ':mix>master-fallback', { src: state.audioNodes[local.id].sum, dest: masterBus });
+        pushTo(adj, local.id, mm.id);
+      }
+    }
+  }
+  state.components.forEach(c => {
+    if (state.numBoards > 6 && c.boardIdx > 3) return; // SALTEAR PLACAS DORMIDAS
+    const d = COMPONENTS[c.type], N = state.audioNodes[c.id];
+    if (!d || !N) return;
+    if (d.kind === 'OUT') {
+      let dest = c.boardIdx === masterIdx ? masterGain : null;
+      if (c.boardIdx !== masterIdx && state.syncEnabled && masterN && masterDef && !localMixerByBoard.has(c.boardIdx)) {
+        const channel = c.boardIdx + 1;
+        const inputPin = masterDef.sig && masterDef.sig['IN' + channel];
+        dest = inputPin != null ? masterN.in[inputPin] : masterBus;
+        if (dest) pushTo(adj, c.id, mm.id);
+      }
+      if (dest) desired.set(c.id + ':out>master', { src: N.in[1], dest });
+      if (c.boardIdx === masterIdx) outIds.push(c.id);
+    }
+  });
+
+  activeEdges.forEach((e, k) => {
+    const w = desired.get(k);
+    if (!w || w.src !== e.src || w.dest !== e.dest) { try { e.src.disconnect(e.dest); } catch (_) {} activeEdges.delete(k); }
+  });
+  desired.forEach((e, k) => {
+    if (!activeEdges.has(k)) { try { e.src.connect(e.dest); activeEdges.set(k, e); } catch (_) {} }
+  });
+
+  gatePairs = [];
+  const gateSrcs = active.filter(c => ['SEQ', 'RUNRESET', 'CLOCK'].indexOf(COMPONENTS[c.type].kind) >= 0);
+  active.filter(c => COMPONENTS[c.type].kind === 'ENV').forEach(env => {
+    const en = pinNet(env, 2);
+    if (!en) return;
+    gateSrcs.forEach(s => {
+      const kind = COMPONENTS[s.type].kind;
+      const pins = kind === 'SEQ' ? [7, 6] : (kind === 'CLOCK' ? [3] : [7]);
+      if (pins.some(p => pinNet(s, p) === en)) gatePairs.push({ srcId: s.id, envId: env.id });
+    });
+  });
+
+  flowing = false;
+  const seen = new Set(), q = active.filter(c => COMPONENTS[c.type].kind === 'VCO').map(c => c.id);
+  q.forEach(id => seen.add(id));
+  while (q.length && !flowing) {
+    const id = q.shift();
+    if (outIds.indexOf(id) >= 0) { flowing = true; break; }
+    (adj[id] || []).forEach(n => { if (!seen.has(n)) { seen.add(n); q.push(n); } });
+  }
+
+  state.components.forEach(c => applyParams(c));
+  updateStatus();
+  masterGain.gain.setTargetAtTime(state.powered && state.soundOn ? 0.18 : 0, audioCtx.currentTime, 0.03);
+}
+
+function updateStatus() {
+  const el = document.getElementById('audioStatus');
+  if (!el) return;
+  if (!state.powered) { el.textContent = uiLanguage === 'es' ? 'APAGADO' : 'POWER OFF'; el.className = 'err'; }
+  else if (!state.soundOn) { el.textContent = uiLanguage === 'es' ? 'SONIDO DESACTIVADO' : 'SOUND OFF'; el.className = 'power'; }
+  else if (flowing) { el.textContent = uiLanguage === 'es' ? '● AUDIO ACTIVO' : '● AUDIO FLOWING'; el.className = 'active'; }
+  else { el.textContent = uiLanguage === 'es' ? 'SIN SEÑAL EN OUT' : 'NO SIGNAL TO OUT'; el.className = 'power'; }
+}
+
+function updateAudio() { rebuildAudio(); }
+
+// ---- Scope drawing ----
+let lastScopeDraw = 0;
+function drawScopes(ts) {
+  requestAnimationFrame(drawScopes);
+  if (ts - lastScopeDraw < 33 || !audioCtx || document.hidden) return;
+  lastScopeDraw = ts;
+  state.components.forEach(c => {
+    const def = COMPONENTS[c.type];
+    if (!def || def.kind !== 'SCOPE') return;
+    const N = state.audioNodes[c.id]; if (!N) return;
+    const tdiv = clamp(kv(c, 'timeDiv'), 1, 100), vdiv = clamp(kv(c, 'voltDiv'), 0.1, 5);
+    const want = clamp(Math.round(audioCtx.sampleRate * tdiv * 4 / 1000), 64, N.bufs[0].length);
+    const b = LAYOUT.icBounds(c.originRow, def.pins);
+    const sw = b.x2 - b.x1 - 12, sh = b.y2 - b.y1 - 24, sx = b.x1 + 6, sy = b.y1 + 12;
+    N.analysers.forEach((an, i) => {
+      const path = document.getElementById('scope-ch' + (i + 1) + '-' + c.id);
+      if (!path) return;
+      const buf = N.bufs[i]; an.getFloatTimeDomainData(buf);
+      const L = buf.length, start = L - want;
+      let t0 = start;
+      for (let k = start; k > Math.max(1, start - want); k--) { if (buf[k - 1] < 0 && buf[k] >= 0) { t0 = k; break; } }
+      const pts = 128, stp = want / pts;
+      let d = '';
+      for (let k = 0; k < pts; k++) {
+        const v = buf[Math.min(L - 1, t0 + Math.floor(k * stp))];
+        d += (k ? 'L' : 'M') + (k / (pts - 1) * 100).toFixed(1) + ',' + clamp(50 - v / vdiv * 25, 0, 100).toFixed(1) + ' ';
+      }
+      path.setAttribute('vector-effect', 'non-scaling-stroke');
+      path.setAttribute('transform', 'translate(' + sx + ',' + sy + ') scale(' + (sw / 100) + ',' + (sh / 100) + ')');
+      path.setAttribute('d', d);
+    });
+  });
+}
+
+// ============ OPTIONS PANEL ============
+const optionsPanel = document.getElementById('optionsPanel');
+function renderOptions() {
+  optionsPanel.innerHTML = '';
+  const t = state.theme;
+
+  const hTheme = document.createElement('h3'); hTheme.textContent = 'THEME'; optionsPanel.appendChild(hTheme);
+  const presetRow = document.createElement('div'); presetRow.className = 'preset-row'; optionsPanel.appendChild(presetRow);
+  ['origins', 'board'].forEach(name => {
+    const b = document.createElement('button');
+    b.textContent = name.toUpperCase();
+    b.classList.toggle('active', state.themeName === name);
+    b.onclick = () => {
+      state.theme = JSON.parse(JSON.stringify(THEMES[name]));
+      state.themeName = name;
+      applyTheme(); renderAllBoards(); renderOptions(); updateAudio(); pushHistory();
+      if (state.rackMode) renderRackMode();
+    };
+    presetRow.appendChild(b);
+  });
+
+  [['bg','Background'],['board','Board'],['hole','Holes'],['holeborder','Hole Border'],
+   ['panel','Panel'],['panel2','Header'],['bd','Borders'],['tx','Text'],['dim','Dim Text'],
+   ['accent','Accent 1'],['accent2','Accent 2'],['accent3','Accent 3'],['accent4','Accent 4'],['accent5','Accent 5']
+  ].forEach(([k, lbl]) => {
+    const lab = document.createElement('label');
+    const sp = document.createElement('span'); sp.textContent = lbl;
+    const inp = document.createElement('input'); inp.type = 'color'; inp.value = t[k] || '#fff';
+    inp.oninput = () => { state.theme[k] = inp.value; applyTheme(); renderAllBoards(); updateAudio(); };
+    inp.onchange = () => pushHistory();
+    lab.appendChild(sp); lab.appendChild(inp); optionsPanel.appendChild(lab);
+  });
+
+  const hCable = document.createElement('h3'); hCable.textContent = 'CABLES'; optionsPanel.appendChild(hCable);
+  const sw = document.createElement('div'); sw.className = 'cable-swatches'; optionsPanel.appendChild(sw);
+  t.cableColors.forEach((c, i) => {
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.className = 'cable-swatch';
+    input.value = c;
+    input.title = 'Cable ' + (i + 1);
+    input.style.boxShadow = state.activeCableColorIndex === i ? '0 0 0 2px var(--tx)' : 'none';
+    
+    input.oninput = (e) => { 
+      state.theme.cableColors[i] = e.target.value; 
+      applyTheme(); 
+      renderWires(); 
+    };
+    input.onchange = () => pushHistory();
+    input.oncontextmenu = (e) => {
+      e.preventDefault();
+      state.activeCableColorIndex = i;
+      renderOptions();
+    };
+    sw.appendChild(input);
+  });
+
+  const labOp = document.createElement('label');
+  const spOp = document.createElement('span'); spOp.textContent = 'Cable Opacity';
+  const inOp = document.createElement('input'); inOp.type = 'range'; inOp.min = '0.1'; inOp.max = '1'; inOp.step = '0.05'; inOp.value = t.cableOpacity;
+  inOp.oninput = () => { state.theme.cableOpacity = parseFloat(inOp.value); applyTheme(); };
+  inOp.onchange = () => pushHistory();
+  labOp.appendChild(spOp); labOp.appendChild(inOp); optionsPanel.appendChild(labOp);
+
+  const labTension = document.createElement('label');
+  const spTension = document.createElement('span'); spTension.textContent = 'Cable Tension';
+  const inTension = document.createElement('input'); inTension.type = 'range'; inTension.min = '0'; inTension.max = '1'; inTension.step = '0.05'; inTension.value = t.cableTension !== undefined ? t.cableTension : 0.5;
+  inTension.oninput = () => { state.theme.cableTension = parseFloat(inTension.value); renderWires(); };
+  inTension.onchange = () => pushHistory();
+  labTension.appendChild(spTension); labTension.appendChild(inTension); optionsPanel.appendChild(labTension);
+
+  const hProj = document.createElement('h3'); hProj.textContent = 'PROJECT'; optionsPanel.appendChild(hProj);
+  const bSave = document.createElement('button'); bSave.className = 'act'; bSave.textContent = 'SAVE PROJECT'; bSave.onclick = saveProject; optionsPanel.appendChild(bSave);
+  const bOpen = document.createElement('button'); bOpen.className = 'act'; bOpen.textContent = 'OPEN PROJECT'; bOpen.onclick = loadProject; optionsPanel.appendChild(bOpen);
+  const bClear = document.createElement('button'); bClear.className = 'act'; bClear.textContent = 'CLEAR ALL';
+  bClear.onclick = () => { state.components = []; state.nextId = 1; renderAllDynamic(); rebuildNets(); updateAudio(); pushHistory(); if (state.rackMode) renderRackMode(); };
+  optionsPanel.appendChild(bClear);
+}
+
+// ============ SAVE / LOAD ============
+function saveProject() {
+  const data = { version: 12, numBoards: state.numBoards, components: state.components, nextId: state.nextId, theme: state.theme, themeName: state.themeName,
+    soundOn: state.soundOn, powered: state.powered, rackMode: state.rackMode,
+    seqNotes: state.seqNotes, activeCableColorIndex: state.activeCableColorIndex, syncEnabled: state.syncEnabled, pointToPoint: state.pointToPoint };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'protoboard_' + Date.now() + '.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function loadProject() {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
+  inp.onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if (!Array.isArray(d.components)) { alert('Invalid file'); return; }
+        
+        Object.keys(state.audioNodes).forEach(id => destroyAudioComponent(id));
+        state.audioNodes = {};
+
+        if (Number.isInteger(d.numBoards) && [1,2,3,6,12].includes(d.numBoards)) { state.numBoards = d.numBoards; localStorage.setItem('pb_boards', d.numBoards); state.zoom = d.numBoards >= 12 ? 0.25 : (d.numBoards >= 6 ? 0.3 : (d.numBoards >= 2 ? 0.5 : 0.8)); }
+        state.components = d.components;
+        state.nextId = d.nextId || state.components.length + 1;
+        if (d.theme) state.theme = d.theme;
+        if (d.themeName) state.themeName = d.themeName;
+        if (typeof d.soundOn === 'boolean') state.soundOn = d.soundOn;
+        if (typeof d.powered === 'boolean') state.powered = d.powered;
+        if (typeof d.rackMode === 'boolean') state.rackMode = d.rackMode;
+        if (d.seqNotes) state.seqNotes = d.seqNotes;
+        if (d.activeCableColorIndex != null) state.activeCableColorIndex = d.activeCableColorIndex;
+        if (typeof d.syncEnabled === 'boolean') state.syncEnabled = d.syncEnabled;
+        if (typeof d.pointToPoint === 'boolean') state.pointToPoint = d.pointToPoint;
+        
+        state.components = state.components.filter(c => COMPONENTS[c.type]);
+        state.components.forEach(c => {
+           const d0 = COMPONENTS[c.type];
+           if (d0.pins >= 8 && c.pins && Object.keys(c.pins).length !== d0.pins) c.pins = icPinPositions(c.originRow || 0, d0.pins);
+           if (d0.kind === 'OUT' || d0.pins >= 8) initAudioComponent(c);
+           if (c.type === 'JUMPER' && c.colorIndex == null) c.colorIndex = 1;
+           if (c.boardIdx == null) c.boardIdx = 0;
+        });
+
+        applyTheme(); rebuildNets(); renderAllBoards(); renderOptions(); updateAudio(); pushHistory();
+        updateBodyOrientation();
+        if (state.rackMode) { document.body.classList.add('rack-mode'); renderRackMode(); }
+        
+        const bSync = document.getElementById('bSync');
+        bSync.classList.toggle('on', state.syncEnabled);
+        bSync.textContent = uiLanguage === 'es' ? (state.syncEnabled ? 'SYNC ACTIVA' : 'SYNC INACTIVA') : (state.syncEnabled ? 'SYNC ON' : 'SYNC OFF');
+        
+        const bWireMode = document.getElementById('bWireMode');
+        bWireMode.textContent = uiLanguage === 'es' ? (state.pointToPoint ? 'CABLE: CLIC' : 'CABLE: ARRASTRAR') : (state.pointToPoint ? 'WIRE: CLICK' : 'WIRE: DRAG');
+        bWireMode.classList.toggle('on', state.pointToPoint);
+        
+      } catch (_) { alert('Error reading file'); }
+    };
+    rd.readAsText(f);
+  };
+  inp.click();
+}
+
+// ============ CIRCUIT BUILDERS ============
+function clearComponents() {
+  Object.keys(state.audioNodes).forEach(id => destroyAudioComponent(id));
+  state.audioNodes = {};
+  state.components = []; state.nextId = 1;
+}
+
+function placeICDirect(type, row, bIdx, overrides) {
+  const def = COMPONENTS[type];
+  const defaults = {};
+  if (def.knobs) def.knobs.forEach(k => { defaults[k.id] = k.def; });
+  const c = { id:'c'+(state.nextId++), type, pins:icPinPositions(row, def.pins), originRow:row, ...defaults, seqSteps:Array(16).fill(false), boardIdx: bIdx, ...(overrides || {}) };
+  state.components.push(c);
+  initAudioComponent(c);
+  return c;
+}
+function jumperDirect(p1, p2, colorIndex, bIdx) {
+  state.components.push({ id:'c'+(state.nextId++), type:'JUMPER', pins:[p1, p2], colorIndex: colorIndex != null ? colorIndex : 1, boardIdx: bIdx });
+}
+
+function powerIC(c, b) {
+  const def = COMPONENTS[c.type];
+  const v = c.pins[def.power.VCC], g = c.pins[def.power.GND];
+  jumperDirect({ ...v }, { rail:'top-vcc', col: v.row }, 0, b);
+  jumperDirect({ ...g }, { rail:'top-gnd', col: g.row }, 0, b);
+}
+function ensureSecondaryMixers() {
+  // Boards are independent workspaces. Never inject mixers automatically.
+}
+function wire(b, a, pa, d, pd, ci) {
+  jumperDirect({ ...a.pins[pa] }, { ...d.pins[pd] }, ci, b);
+}
+function placeOutDirect(row, b) {
+  const o = { id:'c' + (state.nextId++), type:'OUT', pins:[{ row, half:'top', col:2 }], boardIdx: b };
+  state.components.push(o);
+  initAudioComponent(o);
+  return o;
+}
+function steps(list) { const a = Array(16).fill(false); list.forEach(i => { a[i] = true; }); return a; }
+
+function buildKickPreset() {
+  resumeAudio();
+  clearComponents();
+  const b = 0;
+
+  state.components.push(
+    { id:'c'+(state.nextId++), type:'R', pins:[{row:2, half:'top', col:1}, {row:2, half:'top', col:2}], boardIdx: b },
+    { id:'c'+(state.nextId++), type:'C', pins:[{row:3, half:'top', col:1}, {row:3, half:'top', col:2}], boardIdx: b },
+    { id:'c'+(state.nextId++), type:'D_LED', pins:[{row:4, half:'top', col:1}, {row:4, half:'top', col:2}], boardIdx: b }
+  );
+
+  const logic = placeICDirect(Object.keys(COMPONENTS).find(k=>k.startsWith('IC_NAND_GATE_')) || 'LOGIC_NAND', 47, b);
+  const vco = placeICDirect('VCO', 1, b, { freq: 50, lvl: 0.8 });
+  const env = placeICDirect('ENV', 6, b);
+  const vca = placeICDirect('VCA', 11, b);
+  const clock = placeICDirect('CLOCK', 16, b, { bpm: 124 });
+  const seq = placeICDirect('SEQ', 21, b, { seqSteps: steps([0, 4, 8, 12]) });
+  const scope = placeICDirect('SCOPE', 26, b);
+  const mixer = placeICDirect('MIXER12', 31, b);
+  const out = placeOutDirect(42, b);
+
+  [vco, env, vca, clock, seq, scope, mixer].forEach(c => powerIC(c, b));
+
+  wire(b, clock, 3, seq, 2, 0);
+  wire(b, seq, 7, env, 2, 1);
+  wire(b, env, 7, vca, 3, 1);
+  wire(b, vco, 7, vca, 2, 1);
+  wire(b, vca, 7, mixer, 1, 1);
+  wire(b, vca, 7, scope, 1, 3);
+  jumperDirect({ ...mixer.pins[14] }, { ...out.pins[0] }, 1, b);
+  ensureSecondaryMixers();
+
+  rebuildNets(); renderAllDynamic(); updateAudio(); pushHistory();
+  if (state.rackMode) renderRackMode();
+}
+
+function buildSynthPreset() {
+  resumeAudio();
+  clearComponents();
+  const b = 0;
+
+  state.components.push(
+    { id:'c'+(state.nextId++), type:'R', pins:[{row:2, half:'top', col:1}, {row:2, half:'top', col:2}], boardIdx: b },
+    { id:'c'+(state.nextId++), type:'C', pins:[{row:3, half:'top', col:1}, {row:3, half:'top', col:2}], boardIdx: b }
+  );
+
+  const logic = placeICDirect(Object.keys(COMPONENTS).find(k=>k.startsWith('IC_D_FLIP_FLOP')) || Object.keys(COMPONENTS).find(k=>k.startsWith('IC_NOT_INVERTER')) || 'LOGIC_NAND', 48, b);
+  const vco = placeICDirect('VCO', 5, b, { freq: 110, lvl: 0.5 });
+  const vcf = placeICDirect('VCF', 15, b);
+  const env = placeICDirect('ENV', 25, b);
+  const vca = placeICDirect('VCA', 35, b);
+  const mixer = placeICDirect('MIXER12', 42, b);
+  const out = placeOutDirect(56, b);
+  const clock = placeICDirect('CLOCK', 1, b, { bpm: 110 });
+  const randomGateSteps = Array.from({length:16}, (_,i)=>i).filter(()=>Math.random() < 0.55);
+  if (!randomGateSteps.length) randomGateSteps.push(0,8);
+  const seq = placeICDirect('SEQ', 10, b, { seqSteps: steps(randomGateSteps) });
+
+  [vco, vcf, env, vca, mixer, clock, seq].forEach(c => powerIC(c, b));
+
+  wire(b, vco, 7, vcf, 2, 1);
+  wire(b, vcf, 7, vca, 2, 1);
+  wire(b, env, 7, vca, 3, 2);
+  wire(b, clock, 3, seq, 2, 0);
+  wire(b, seq, 7, env, 2, 3);
+  wire(b, vca, 7, mixer, 1, 1);
+  jumperDirect({ ...mixer.pins[14] }, { ...out.pins[0] }, 1, b);
+  ensureSecondaryMixers();
+
+  rebuildNets(); renderAllDynamic(); updateAudio(); pushHistory();
+  if (state.rackMode) renderRackMode();
+}
+
+// ============ LOCALIZATION ============
+let uiLanguage = localStorage.getItem('pb_language') === 'es' ? 'es' : 'en';
+const GUIDE_TEXT = {
+  en: {
+    basic: `<h2>BREADBOARD BASICS</h2>
+      <p>This interface represents a breadboard. Rows, component pins, and jumper wires define which points are electrically connected. Open <b>COMPONENTS</b>, choose a part, and place it on the board. Connect two contacts with a wire; double-click or right-click a wire to remove it.</p>
+      <h3>CORE TERMS</h3><p><b>VCC</b> is the positive supply rail. <b>GND</b> is the ground reference. A powered IC needs its modeled VCC and GND pins connected to the matching rails.</p>
+      <p><b>IN / OUT</b> are signal input and output. <b>CV</b> is a control-voltage input. <b>GATE</b> is a trigger used to start an envelope or note.</p>
+      <p><b>VCO</b> generates a waveform; <b>VCF</b> filters it; <b>VCA</b> controls its level; <b>ENV</b> shapes level over time; <b>LFO</b> creates slow modulation; <b>CLOCK / SEQ</b> provide timing and step triggers.</p>
+      <h3>WHY EVERY BOARD HAS A LOCAL MIXER</h3><p>The mixer near the center of each secondary Proton Board is that board's local submixer. Route the board's sound sources and effects into it, then its combined output is sent automatically to the matching channel on the master mixer in <b>Board 1</b> when <b>SYNC ON</b> is enabled. The local mixer controls the balance of sounds inside that board; the master mixer controls that board's overall level in the complete mix.</p>
+      <p>The <b>Board 1 master mixer</b> is the main mix bus and is the key to hearing all boards together. Its output must connect to the final <b>OUT</b>. If you remove or bypass the master mixer/output path, secondary boards may not be audible through the main output.</p>
+      <h3>WHAT THIS SIMULATOR MODELS</h3><p>Synth and effect modules generate sound using Web Audio behavioral models. The Circuit Analysis panel separately solves DC node voltages and branch currents for connected resistors and potentiometers; it assumes +5 V and 0 V rails, and treats capacitors as open circuits in DC. Diodes, transistors, regulators, logic ICs, and the internal circuitry of synth modules are not yet solved electrically. This is a hybrid educational simulator, not a full SPICE engine or a validated hardware schematic.</p>
+      <button class="close-help" onclick="document.getElementById('basicModal').style.display='none'">CLOSE GUIDE</button>`,
+    routing: `<h2>CONNECTION AND BUILD MANUAL</h2>
+      <p><b>Reading the pin labels:</b> IN is an input, OUT is an output, CV is a control input, and GATE is a trigger. Pin numbers refer to this interface's model and are not physical wiring advice; check the relevant datasheet before building real hardware.</p>
+      <h3>1. MASTER BOARD: KICK OR SYNTH → MIXER → OUT</h3><ol><li>Use the <b>KICK PRESET</b> or <b>SYNTH PRESET</b> button to load a working starting layout on Board 1.</li><li>Keep the master mixer powered. The kick preset uses a 5-channel mixer; the synth preset uses a 12-channel mixer.</li><li>For the synth path, the key route is <b>VCO OUT → VCF IN → VCA IN → MIXER IN1 → MIXER OUT → OUT</b>. The envelope is connected to the VCA CV input and the sequencer triggers the envelope.</li><li>Check that POWER is on and the status shows audio flowing. If not, inspect the signal path and power connections.</li></ol>
+      <h3>2. WHY THERE IS A MIXER ON EVERY PROTON BOARD</h3><p>Each secondary board has a local <b>MIXER 12CH</b>. Connect that board's sound modules and effects to its local mixer inputs. The local mixer sums those signals into one board-level output. The app then routes that sum to the master mixer's matching channel when <b>SYNC ON</b> is active.</p>
+      <p><b>Board-to-channel mapping:</b> Board 2 → master IN2; Board 3 → master IN3; Board 4 → IN4; continuing through Board 12 → IN12. Board 1 is the master board and its local signal path reaches the final OUT.</p>
+      <p><b>How to hear 2, 3, 6, or 12 boards:</b> choose the number of boards; build or load sounds on the secondary boards; route each board's audio into its local mixer; leave <b>SYNC ON</b>; and adjust that board's level with the corresponding channel knob on the Board 1 master mixer. Use the local mixer's channel knobs to balance sounds within that board. The master mixer is the main output mix, not a redundant extra mixer.</p>
+      <p>If the master mixer is a 5-channel model, it cannot provide a separate channel for every one of 12 boards. For 12-board sessions, use the 12-channel master mixer provided by the SYNTH PRESET or build the equivalent master route. A secondary board without a local mixer cannot be mixed as a complete board-level sum.</p>
+      <h3>3. ENVELOPE AND SEQUENCER</h3><ul><li><b>CLOCK OUT (pin 3) → SEQ CLK (pin 2)</b>.</li><li><b>SEQ GATE (pin 7) → ENV trigger (pin 2)</b>.</li><li><b>ENV OUT (pin 7) → VCA CV (pin 3)</b>.</li><li>Route the audio source through VCA IN (pin 2). Attack, Decay, Sustain, and Release shape the amplitude over time.</li></ul>
+      <h3>4. MODULATION AND EFFECTS</h3><ul><li><b>LFO OUT (pin 3) → VCF CV (pin 3)</b> modulates the filter; start with a low scale.</li><li><b>VCO OUT → DELAY IN (pin 2) → local MIXER IN</b> adds echo.</li><li><b>VCO OUT → CHORUS or DIST IN (pin 2) → local MIXER IN</b> adds modulation or saturation.</li></ul>
+      <h3>5. POWER AND SHORTS</h3><p>VCC is the positive supply and GND is the reference. Do not directly join VCC and GND. Real-world voltage, current, decoupling, and heat requirements depend on each physical circuit and its datasheet.</p>
+      <h3>7. QUICK BUILD RECIPES</h3><p><b>Kick:</b> VCO OUT → VCA IN; CLOCK OUT → SEQ CLK; SEQ GATE → ENV trigger; ENV OUT → VCA CV; VCA OUT → MIXER IN1; MIXER OUT → OUT. Set VCO low (about 45–70 Hz) and use a short decay. Add resistor, capacitor, transistor/diode, and a NAND/flip-flop IC footprint for a visibly mixed circuit; these generic digital IC footprints are not yet logic-simulated.</p><p><b>Hat / clap / snare / tom / ride / crash:</b> use a high-frequency VCO or noise-like source where available → short ENV → VCA → mixer; vary pitch and decay per voice. For clap/snare, layer two sources or add short delay; for ride/crash use longer decay and high frequencies.</p><p><b>Arpeggiated synth:</b> CLOCK OUT → SEQ CLK; SEQ GATE → ENV trigger; VCO OUT → VCF IN → VCA IN; ENV OUT → VCA CV; VCF OUT → VCA IN; VCA OUT → MIXER IN; MIXER OUT → OUT. Set notes in the SEQ step controls.</p><p><b>Send/return effects:</b> MIXER SEND1 → DELAY/REV IN; effect OUT → MIXER RET1; MIXER OUT → OUT. Keep the return level low to start. <b>Scope:</b> connect the signal under test to SCOPE IN1 and compare its waveform visually.</p><h3>8. SIMULATION LIMITS</h3><p>Audio is processed by the browser's Web Audio engine using behavioral models. Circuit Analysis separately solves DC resistor/potentiometer networks, assuming +5 V and 0 V rails; capacitors are open in DC. Diodes, transistors, regulators, logic ICs and internal module circuits are not electrically solved. This is not a full SPICE solver and does not reproduce real-device tolerances or temperature behavior.</p>
+      <button class="close-help" onclick="document.getElementById('helpModal').classList.remove('open')">CLOSE MANUAL</button>`,
+  },
+  es: {
+    basic: `<h2>GUÍA BÁSICA DE PROTOBOARD</h2>
+      <p>Esta interfaz representa una protoboard. Las filas, los pines y los cables determinan qué puntos quedan conectados. Abre <b>COMPONENTS</b>, elige una pieza y colócala. Conecta dos contactos con un cable; haz doble clic o clic derecho sobre un cable para eliminarlo.</p>
+      <h3>CONCEPTOS PRINCIPALES</h3><p><b>VCC</b> es la alimentación positiva. <b>GND</b> es la referencia de tierra. Un integrado necesita conectar sus pines VCC y GND del modelo a las líneas correspondientes.</p>
+      <p><b>IN / OUT</b> son entrada y salida de señal. <b>CV</b> es una entrada de control por voltaje. <b>GATE</b> es un disparo que inicia una envolvente o nota.</p>
+      <p><b>VCO</b> genera una onda; <b>VCF</b> la filtra; <b>VCA</b> controla su nivel; <b>ENV</b> da forma al nivel a lo largo del tiempo; <b>LFO</b> crea modulación lenta; <b>CLOCK / SEQ</b> proporcionan tiempo y disparos por pasos.</p>
+      <h3>POR QUÉ CADA BOARD TIENE UN MIXER LOCAL</h3><p>El mixer situado cerca del centro de cada Proton Board secundaria es su submezclador local. Conecta allí las fuentes de sonido y los efectos de esa board. Con <b>SYNC ON</b>, la salida combinada se envía automáticamente al canal correspondiente del mixer maestro en la <b>Board 1</b>. El mixer local equilibra los sonidos dentro de su board; el maestro controla el nivel general de esa board dentro de la mezcla completa.</p>
+      <p>El <b>mixer maestro de Board 1</b> es el bus principal y permite escuchar todas las boards juntas. Su salida debe llegar al <b>OUT</b> final. Si se elimina o se evita la ruta del mixer maestro y la salida, las boards secundarias podrían no escucharse por la salida principal.</p>
+      <h3>QUÉ SIMULA ESTE PROGRAMA</h3><p>Los módulos de síntesis y efectos generan audio con modelos de comportamiento de Web Audio. Los componentes pasivos y semiconductores básicos son visuales, pero todavía no se resuelven como un circuito eléctrico completo. No es un simulador SPICE ni transistor por transistor y no debe tratarse como un esquema de hardware validado.</p>
+      <button class="close-help" onclick="document.getElementById('basicModal').style.display='none'">CERRAR GUÍA</button>`,
+    routing: `<h2>MANUAL DE CONEXIONES Y CONSTRUCCIÓN</h2>
+      <p><b>Cómo leer los pines:</b> IN es entrada, OUT es salida, CV es entrada de control y GATE es un disparo. Los números corresponden al modelo de esta interfaz y no son instrucciones para cablear hardware físico; consulta la hoja de datos antes de construir un circuito real.</p>
+      <h3>1. BOARD MAESTRA: KICK O SYNTH → MIXER → OUT</h3><ol><li>Usa <b>KICK PRESET</b> o <b>SYNTH PRESET</b> para cargar un montaje inicial en Board 1.</li><li>Mantén alimentado el mixer maestro. El preset de kick usa un mixer de 5 canales; el de synth usa uno de 12.</li><li>En el sintetizador, la ruta clave es <b>VCO OUT → VCF IN → VCA IN → MIXER IN1 → MIXER OUT → OUT</b>. La envolvente está conectada a CV del VCA y el secuenciador dispara la envolvente.</li><li>Comprueba que POWER esté encendido y que el estado indique flujo de audio. Si no, revisa la ruta de señal y la alimentación.</li></ol>
+      <h3>2. POR QUÉ HAY UN MIXER EN CADA PROTON BOARD</h3><p>Cada board secundaria tiene un <b>MIXER 12CH</b> local. Conecta las fuentes de sonido y efectos de esa board a las entradas del mixer local. El mixer suma esas señales en una sola salida de board. Con <b>SYNC ON</b>, la aplicación envía esa suma al canal correspondiente del mixer maestro.</p>
+      <p><b>Relación board-canal:</b> Board 2 → master IN2; Board 3 → master IN3; Board 4 → IN4; y así hasta Board 12 → IN12. Board 1 es la maestra y su ruta de señal llega al OUT final.</p>
+      <p><b>Cómo escuchar 2, 3, 6 o 12 boards:</b> elige la cantidad de boards; construye o carga sonidos en las secundarias; conecta el audio de cada board a su mixer local; deja <b>SYNC ON</b>; y ajusta el nivel de esa board con la perilla del canal correspondiente en el mixer maestro de Board 1. Usa las perillas del mixer local para equilibrar sus sonidos internos. El mixer maestro es la mezcla de salida, no un mixer redundante.</p>
+      <p>Un mixer maestro de 5 canales no puede ofrecer un canal independiente para 12 boards. Para sesiones de 12 boards, usa el mixer maestro de 12 canales que carga el preset SYNTH o construye una ruta equivalente. Una board secundaria sin mixer local no puede enviarse como una suma completa de esa board.</p>
+      <h3>3. ENVOLVENTE Y SECUENCIADOR</h3><ul><li><b>CLOCK OUT (pin 3) → SEQ CLK (pin 2)</b>.</li><li><b>SEQ GATE (pin 7) → disparo ENV (pin 2)</b>.</li><li><b>ENV OUT (pin 7) → VCA CV (pin 3)</b>.</li><li>Envía la fuente de audio a VCA IN (pin 2). Attack, Decay, Sustain y Release controlan la amplitud a lo largo del tiempo.</li></ul>
+      <h3>4. MODULACIÓN Y EFECTOS</h3><ul><li><b>LFO OUT (pin 3) → VCF CV (pin 3)</b> modula el filtro; comienza con una escala baja.</li><li><b>VCO OUT → DELAY IN (pin 2) → MIXER local IN</b> añade eco.</li><li><b>VCO OUT → CHORUS o DIST IN (pin 2) → MIXER local IN</b> añade modulación o saturación.</li></ul>
+      <h3>5. ALIMENTACIÓN Y CORTOCIRCUITOS</h3><p>VCC es la alimentación positiva y GND la referencia. No unas directamente VCC y GND. Las necesidades reales de tensión, corriente, desacoplo y disipación dependen del circuito físico y su hoja de datos.</p>
+      <h3>7. RECETAS RÁPIDAS</h3><p><b>Kick:</b> VCO OUT → VCA IN; CLOCK OUT → SEQ CLK; SEQ GATE → disparo ENV; ENV OUT → VCA CV; VCA OUT → MIXER IN1; MIXER OUT → OUT. Ajusta el VCO a 45–70 Hz y usa una caída corta. Añade resistor, capacitor, transistor/diodo y una huella IC NAND/flip-flop para mostrar un circuito mixto; estas huellas digitales genéricas aún no simulan lógica.</p><p><b>Hat / clap / snare / tom / ride / crash:</b> usa un VCO agudo o una fuente similar a ruido → ENV corta → VCA → mixer; varía afinación y caída. Para clap/snare, combina dos fuentes o añade delay corto; para ride/crash usa frecuencias altas y caída más larga.</p><p><b>Synth arpegiado:</b> CLOCK OUT → SEQ CLK; SEQ GATE → disparo ENV; VCO OUT → VCF IN → VCA IN; ENV OUT → VCA CV; VCF OUT → VCA IN; VCA OUT → MIXER IN; MIXER OUT → OUT. Ajusta las notas en los pasos del SEQ.</p><p><b>Envío/retorno:</b> MIXER SEND1 → entrada DELAY/REV; salida del efecto → MIXER RET1; MIXER OUT → OUT. Comienza con retorno bajo. <b>Osciloscopio:</b> conecta la señal a medir a SCOPE IN1.</p><h3>8. LÍMITES DE LA SIMULACIÓN</h3><p>El audio se procesa con el motor Web Audio del navegador mediante modelos de comportamiento. Análisis Eléctrico resuelve por separado redes de resistencias y potenciómetros en CC, suponiendo rieles de +5 V y 0 V; los condensadores quedan abiertos en CC. Diodos, transistores, reguladores, circuitos lógicos y circuitos internos de los módulos no se resuelven eléctricamente. No es un solver SPICE completo ni reproduce las tolerancias o respuestas térmicas de dispositivos reales.</p>
+      <button class="close-help" onclick="document.getElementById('helpModal').classList.remove('open')">CERRAR MANUAL</button>`
+  }
+};
+const STATIC_ES = {
+  'BASIC GUIDE':'GUÍA BÁSICA','CONNECTION GUIDE':'GUÍA DE CONEXIONES','BOARDS · BOARD 1 = MASTER OUTPUT':'BOARDS · BOARD 1 = SALIDA MAESTRA',
+  '3 BOARDS (1 column)':'3 BOARDS (1 columna)','6 BOARDS (2 columns × 3)':'6 BOARDS (2 columnas × 3)','12 BOARDS (4 columns × 3)':'12 BOARDS (4 columnas × 3)',
+  'CLOSE':'CERRAR','1 BOARD':'1 BOARD','2 BOARDS':'2 BOARDS','3 BOARDS':'3 BOARDS','6 BOARDS':'6 BOARDS','12 BOARDS':'12 BOARDS',
+  'BREADBOARD BASICS':'GUÍA BÁSICA DE PROTOBOARD','CONNECTION AND BUILD MANUAL':'MANUAL DE CONEXIONES Y CONSTRUCCIÓN',
+  'POWER ON':'POWER ON','POWER OFF':'POWER OFF','KICK PRESET':'KICK PRESET','SYNTH PRESET':'SYNTH PRESET',
+  'COMPONENTS':'COMPONENTS','OPTIONS':'OPTIONS','CLOSE GUIDE':'CERRAR GUÍA','CLOSE MANUAL':'CERRAR MANUAL'
+};
+const COMPONENT_ES = {
+  'VCO TL072':['VCO TL072','Oscilador de diente de sierra','FUENTES'],'ENV CD40106':['ENV CD40106','Generador de envolvente','FUENTES'],
+  'LFO NE555':['LFO NE555','Oscilador de baja frecuencia','FUENTES'],'VCF LM13700':['VCF LM13700','Filtro pasa-bajos','PROCESO'],
+  'VCA LM13700':['VCA LM13700','Amplificador controlado','PROCESO'],'PITCH TL072':['PITCH TL072','Control de afinación','PROCESO'],
+  'DELAY PT2399':['DELAY PT2399','Procesador de eco','EFECTOS'],'MULTI-REVERB':['MULTI-REVERB','Reverberación múltiple','EFECTOS'],
+  'CHORUS MN3007':['CHORUS MN3007','Retardo modulado','EFECTOS'],'DIST TL071':['DIST TL071','Saturación','EFECTOS'],
+  'COMP':['COMP','Compresor','EFECTOS'],'REC':['REC','Grabación / entrada de audio','EFECTOS'],'CLOCK NE555':['CLOCK NE555','Reloj maestro','RELOJ'],
+  'RUN/RESET CD4017':['RUN/RESET CD4017','Secuenciador por disparos','RELOJ'],'HW SEQ (CD4017)':['HW SEQ (CD4017)','Secuenciador por pasos','RELOJ'],
+  'SCOPE':['SCOPE','Osciloscopio de 4 canales','VISUAL'],'MIXER 5CH':['MIXER 5CH','5 entradas + envíos/retornos','MEZCLA'],
+  'MIXER 12CH':['MIXER 12CH','12 entradas → 1 salida','MEZCLA'],'Master Out':['Salida maestra','Buffer de salida']
+};
+function applyLanguage() {
+  const es = uiLanguage === 'es';
+  document.documentElement.lang = uiLanguage;
+  document.getElementById('bLanguage').textContent = es ? 'ES / EN' : 'EN / ES';
+  document.getElementById('bLanguage').title = es ? 'Cambiar idioma' : 'Switch language';
+  document.getElementById('bBasic').textContent = es ? 'GUÍA BÁSICA' : 'BASIC GUIDE';
+  document.getElementById('bHelp').textContent = es ? 'GUÍA DE CONEXIONES' : 'CONNECTION GUIDE';
+  document.getElementById('bCircuit').textContent = es ? 'ANÁLISIS ELÉCTRICO' : 'CIRCUIT ANALYSIS';
+  document.getElementById('circuitTitle').textContent = es ? 'ANÁLISIS HÍBRIDO DEL CIRCUITO' : 'HYBRID CIRCUIT ANALYSIS';
+  document.getElementById('bCircuitClose').textContent = es ? 'CERRAR' : 'CLOSE';
+  document.getElementById('circuitIntro').textContent = es ? 'El motor de audio ejecuta modelos conductuales de sintetizador y efectos. Este panel calcula por separado tensiones y corrientes continuas de resistencias y potenciómetros conectados mediante análisis nodal de conductancias. Los rieles de cada placa se consideran +5 V y 0 V. En análisis de corriente continua, los condensadores se consideran circuitos abiertos.' : 'The audio engine runs behavioral synthesizer/effect models. This panel separately solves DC voltages and currents for connected resistors and potentiometers using nodal conductance analysis, with board rails treated as +5 V and 0 V. Capacitors are open circuits in DC analysis.';
+    document.getElementById('bComponents').textContent = uiLanguage==='es'?'COMPONENTES':'COMPONENTS';
+  const proSearch = document.getElementById('proSearch'); if (proSearch) proSearch.placeholder = es ? 'Buscar puertas, contadores, registros…' : 'Search gates, counters, registers…';
+  document.getElementById('bOptions').textContent = es ? 'OPCIONES' : 'OPTIONS';
+  document.getElementById('bBoards').textContent = state.numBoards + (es ? ' BOARD' : ' BOARD') + (state.numBoards > 1 ? 'S' : '');
+  document.getElementById('boardsModal').querySelector('h2').textContent = es ? 'BOARDS · BOARD 1 = SALIDA MAESTRA' : 'BOARDS · BOARD 1 = MASTER OUTPUT';
+  const opts = document.querySelectorAll('#boardsModal .bm-opt');
+  const labels = es ? ['1 BOARD','2 BOARDS','3 BOARDS (1 columna)','6 BOARDS (2 columnas × 3)','12 BOARDS (4 columnas × 3)'] : ['1 BOARD','2 BOARDS','3 BOARDS (1 column)','6 BOARDS (2 columns × 3)','12 BOARDS (4 columns × 3)'];
+  opts.forEach((b,i)=>b.textContent=labels[i]);
+  document.querySelector('#boardsModal .bm-close').textContent = es ? 'CERRAR' : 'CLOSE';
+  document.getElementById('basicGuideContent').innerHTML = GUIDE_TEXT[uiLanguage].basic;
+  document.getElementById('routingGuideContent').innerHTML = GUIDE_TEXT[uiLanguage].routing;
+  Object.entries(COMPONENTS).forEach(([key,def])=>{
+    if (!def._englishLabel) { def._englishLabel=def.label; def._englishSub=def.sub; def._englishGroup=def.group; }
+    const tr=COMPONENT_ES[def._englishLabel];
+    if (es && tr) { def.label=tr[0]; def.sub=tr[1]; def.group=tr[2]; }
+    else { def.label=def._englishLabel; def.sub=def._englishSub; def.group=def._englishGroup; }
+  });
+  buildPalette();
+  renderAllBoards();
+  renderAllDynamic();
+  renderOptions();
+  if (es) {
+    const optionTranslations = {THEME:'TEMA',CABLES:'CABLES',PROJECT:'PROYECTO',Background:'Fondo',Board:'Placa',Holes:'Orificios','Hole Border':'Borde de orificio',Panel:'Panel',Header:'Encabezado',Borders:'Bordes',Text:'Texto','Dim Text':'Texto tenue','Accent 1':'Acento 1','Accent 2':'Acento 2','Accent 3':'Acento 3','Accent 4':'Acento 4','Accent 5':'Acento 5','Cable Opacity':'Opacidad del cable','Cable Tension':'Tensión del cable','SAVE PROJECT':'GUARDAR PROYECTO','OPEN PROJECT':'ABRIR PROYECTO','CLEAR ALL':'BORRAR TODO'};
+    const walker=document.createTreeWalker(optionsPanel,NodeFilter.SHOW_TEXT); const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(n=>{const k=n.nodeValue.trim(); if(optionTranslations[k]) n.nodeValue=n.nodeValue.replace(k,optionTranslations[k]);});
+  }
+  updateBodyOrientation();
+  updateStatus();
+  localStorage.setItem('pb_language', uiLanguage);
+}
+document.getElementById('bLanguage').addEventListener('click',()=>{uiLanguage=uiLanguage==='en'?'es':'en';applyLanguage();});
+
+// ============ UI BINDINGS ============
+function updateBodyOrientation() {
+  document.getElementById('bRack').classList.toggle('on', state.rackMode);
+  document.getElementById('bPower').textContent = uiLanguage === 'es' ? (state.powered ? 'ENCENDIDO' : 'APAGADO') : (state.powered ? 'POWER ON' : 'POWER OFF');
+  document.getElementById('bPower').classList.toggle('on', state.powered);
+  document.getElementById('bPower').classList.toggle('off', !state.powered);
+  
+  const bBoards = document.getElementById('bBoards');
+  bBoards.textContent = state.numBoards + (uiLanguage === 'es' ? ' BOARD' : ' BOARD') + (state.numBoards > 1 ? 'S' : '');
+  bBoards.classList.toggle('on', state.numBoards > 1);
+
+  const bSync = document.getElementById('bSync');
+  bSync.textContent = uiLanguage === 'es' ? (state.syncEnabled ? 'SYNC ACTIVA' : 'SYNC INACTIVA') : (state.syncEnabled ? 'SYNC ON' : 'SYNC OFF');
+  bSync.classList.toggle('on', state.syncEnabled);
+
+  const bWireMode = document.getElementById('bWireMode');
+  bWireMode.textContent = uiLanguage === 'es' ? (state.pointToPoint ? 'CABLE: CLIC' : 'CABLE: ARRASTRAR') : (state.pointToPoint ? 'WIRE: CLICK' : 'WIRE: DRAG');
+  bWireMode.classList.toggle('on', state.pointToPoint);
+
+  const panel = document.getElementById('rackKnobsPanel');
+  panel.className = `panel-${state.rackPanelPos}`;
+  
+  const container = document.getElementById('boardContainer');
+  container.className = '';
+  if (state.rackMode) {
+    container.classList.add(state.rackPanelPos === 'top' ? 'top-panel' : 'bottom-panel');
+  }
+}
+
+document.getElementById('bComponents').onclick = () => {
+  if (document.body.classList.contains('pro-mode')) {
+    const catalog = document.getElementById('proCatalog');
+    if (catalog) catalog.classList.toggle('open');
+  } else {
+    document.getElementById('palette').classList.toggle('open');
+  }
+};
+document.getElementById('bOptions').onclick = () => {
+  renderOptions();
+  optionsPanel.classList.toggle('open');
+};
+document.getElementById('bPower').onclick = () => {
+  state.powered = !state.powered;
+  updateBodyOrientation();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  updateAudio();
+};
+document.getElementById('bRack').onclick = toggleRackMode;
+let randomMysetKind = 'synth';
+function loadRandomMyset(){
+ if (audioCtx.state === 'suspended') audioCtx.resume();
+ randomMysetKind = randomMysetKind === 'synth' ? 'kick' : 'synth';
+ if(randomMysetKind==='kick') buildKickPreset(); else buildSynthPreset();
+ const a=document.getElementById('bPreset'), b=document.getElementById('bSynthPreset');
+ a.textContent='RANDOM MYSET'; b.style.display='none'; a.title='Alternar entre los presets Synth y Kick';
+}
+document.getElementById('bPreset').onclick = loadRandomMyset;
+document.getElementById('bSynthPreset').onclick = loadRandomMyset;
+document.getElementById('bCircuit').onclick = () => { runCircuitAnalysis(); document.getElementById('circuitModal').classList.add('open'); };
+document.getElementById('bCircuitClose').onclick = () => document.getElementById('circuitModal').classList.remove('open');
+document.getElementById('bBasic').onclick = () => {
+  document.getElementById('basicModal').style.display = 'flex';
+};
+document.getElementById('bHelp').onclick = () => {
+  document.getElementById('helpModal').classList.add('open');
+};
+function setBoards(n) {
+  state.numBoards = n;
+  localStorage.setItem('pb_boards', n);
+  const gone = state.components.filter(c => c.boardIdx >= n);
+  gone.forEach(c => destroyAudioComponent(c.id));
+  state.components = state.components.filter(c => c.boardIdx < n);
+  state.pendingFirstPin = null;
+  state.zoom = n >= 12 ? 0.25 : (n >= 6 ? 0.3 : (n >= 2 ? 0.5 : 0.8));
+  ensureSecondaryMixers();
+  hideInternals();
+  renderBoards();
+  renderAllDynamic();
+  updateBodyOrientation();
+  updateAudio();
+  pushHistory();
+  if (state.rackMode) renderRackMode();
+}
+const boardsModal = document.getElementById('boardsModal');
+function openBoardsModal() {
+  boardsModal.querySelectorAll('.bm-opt').forEach(b => b.classList.toggle('sel', +b.dataset.n === state.numBoards));
+  boardsModal.classList.add('open');
+}
+boardsModal.querySelectorAll('.bm-opt').forEach(b => {
+  b.onclick = () => { boardsModal.classList.remove('open'); setBoards(+b.dataset.n); };
+});
+boardsModal.querySelector('.bm-close').onclick = () => boardsModal.classList.remove('open');
+boardsModal.addEventListener('pointerdown', e => { if (e.target === boardsModal) boardsModal.classList.remove('open'); });
+document.getElementById('bBoards').onclick = openBoardsModal;
+document.getElementById('bSync').onclick = () => {
+  state.syncEnabled = !state.syncEnabled;
+  updateBodyOrientation();
+  updateAudio();
+  pushHistory();
+};
+document.getElementById('bWireMode').onclick = () => {
+  state.pointToPoint = !state.pointToPoint;
+  state.pendingFirstPin = null;
+  clearPreview();
+  updateBodyOrientation();
+};
+document.getElementById('bZoomIn').onclick = () => {
+  state.zoom = Math.min(1.5, state.zoom + 0.05);
+  updateZoom();
+};
+document.getElementById('bZoomOut').onclick = () => {
+  state.zoom = Math.max(0.25, state.zoom - 0.05);
+  updateZoom();
+};
+
+document.getElementById('boardContainer').addEventListener('wheel', e => {
+  if (e.ctrlKey) {
+    e.preventDefault();
+    const zoomDelta = e.deltaY < 0 ? 0.05 : -0.05;
+    state.zoom = Math.max(0.25, Math.min(1.5, state.zoom + zoomDelta));
+    updateZoom();
+  } else if (e.shiftKey) {
+    e.preventDefault();
+    document.getElementById('boardContainer').scrollLeft += e.deltaY;
+  }
+}, { passive: false });
+
+document.addEventListener('keydown', e => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (ctrl && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
+  else if (ctrl && (e.key === 'y' || e.key === 'Y' || (e.shiftKey && (e.key === 'z' || e.key === 'Z')))) { e.preventDefault(); redo(); }
+  else if (e.key === 'Escape') {
+    if (state.selectedType) { selectPaletteItem(null); state.pendingFirstPin = null; clearPreview(); }
+    document.getElementById('palette').classList.remove('open');
+    optionsPanel.classList.remove('open');
+    document.getElementById('helpModal').classList.remove('open');
+    document.getElementById('circuitModal').classList.remove('open');
+    document.getElementById('basicModal').style.display='none';
+    boardsModal.classList.remove('open');
+    hideInternals();
+  }
+});
+
+window.addEventListener('resize', () => {
+  if (state.rackMode) renderRackMode();
+  updateZoom();
+});
+
+// ============ HYBRID ELECTRICAL ANALYSIS ============
+function solveLinearSystem(A, b) {
+  const n = b.length;
+  for (let i = 0; i < n; i++) {
+    let maxRow = i;
+    for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[maxRow][i])) maxRow = r;
+    if (Math.abs(A[maxRow][i]) < 1e-12) return null;
+    [A[i], A[maxRow]] = [A[maxRow], A[i]]; [b[i], b[maxRow]] = [b[maxRow], b[i]];
+    const pivot = A[i][i];
+    for (let j = i; j < n; j++) A[i][j] /= pivot; b[i] /= pivot;
+    for (let r = 0; r < n; r++) if (r !== i) {
+      const f = A[r][i]; if (!f) continue;
+      for (let j = i; j < n; j++) A[r][j] -= f * A[i][j];
+      b[r] -= f * b[i];
+    }
+  }
+  return b;
+}
+function runCircuitAnalysis() {
+  const target = document.getElementById('circuitResults');
+  const es = uiLanguage === 'es';
+  if (typeof uf === 'undefined' || !uf) rebuildNets();
+  const rows = [], warnings = [], boardStats = [];
+  const unsupportedTypes = new Set();
+  for (let b = 0; b < state.numBoards; b++) {
+    const boardComps = state.components.filter(c => c.boardIdx === b);
+    const edges = [];
+    const nodes = new Set();
+    const root = p => uf.find(pinKey(p, b));
+    const vcc = uf.find(b + ':rail:VCC'), gnd = uf.find(b + ':rail:GND');
+    nodes.add(vcc); nodes.add(gnd);
+    boardComps.forEach(c => {
+      if (c.type === 'JUMPER') return;
+      const d = COMPONENTS[c.type];
+      if (!d) return;
+      if ((c.type === 'R' || c.type === 'POT') && Array.isArray(c.pins) && c.pins.length >= 2) {
+        const a = root(c.pins[0]), z = root(c.pins[1]); nodes.add(a); nodes.add(z);
+        const ohms = Number(c.resistance || (c.type === 'POT' ? 10000 : 10000));
+        if (a !== z && ohms > 0 && Number.isFinite(ohms)) edges.push({id:c.id,type:c.type,a,z,R:ohms});
+      } else if (c.type === 'C') {
+        if (Array.isArray(c.pins) && c.pins.length >= 2) { nodes.add(root(c.pins[0])); nodes.add(root(c.pins[1])); }
+      } else if (d.kind === 'passive' && c.type !== 'R' && c.type !== 'POT' && c.type !== 'C') unsupportedTypes.add(c.type);
+    });
+    if (vcc === gnd) { warnings.push((es?'Placa ':'Board ')+(b+1)+': '+(es?'cortocircuito entre VCC y GND.':'VCC-to-GND short detected.')); continue; }
+    const fixed = new Map([[vcc,5],[gnd,0]]);
+    const unknown = [...nodes].filter(n => !fixed.has(n));
+    const idx = new Map(unknown.map((n,i)=>[n,i]));
+    const A = unknown.map(()=>Array(unknown.length).fill(0)), rhs = unknown.map(()=>0);
+    edges.forEach(e => {
+      const g = 1/e.R, ia=idx.get(e.a), iz=idx.get(e.z);
+      if (ia != null) { A[ia][ia]+=g; if (iz != null) A[ia][iz]-=g; else rhs[ia]+=g*fixed.get(e.z); }
+      if (iz != null) { A[iz][iz]+=g; if (ia != null) A[iz][ia]-=g; else rhs[iz]+=g*fixed.get(e.a); }
+    });
+    let solution = unknown.length ? solveLinearSystem(A,rhs) : [];
+    if (unknown.length && !solution) {
+      warnings.push((es?'Placa ':'Board ')+(b+1)+': '+(es?'hay nodos flotantes o una red sin referencia; no se puede resolver de forma única.':'floating nodes or an unreferenced network; no unique DC solution.'));
+      continue;
+    }
+    const volts = new Map(fixed); unknown.forEach((n,i)=>volts.set(n,solution[i]));
+    let totalDissipation=0;
+    edges.forEach(e=>{
+      const va=volts.get(e.a), vz=volts.get(e.z);
+      if (va==null || vz==null) return;
+      const current=(va-vz)/e.R, power=(va-vz)*current; totalDissipation+=power;
+      rows.push(`<tr><td>${escHtml(e.id)}</td><td>${e.type==='POT'?'Potentiometer':'Resistor'}</td><td>${(e.R/1000).toFixed(2)} kΩ</td><td>${va.toFixed(3)} V</td><td>${vz.toFixed(3)} V</td><td>${(current*1000).toFixed(3)} mA</td><td>${(power*1000).toFixed(3)} mW</td></tr>`);
+    });
+    const nodeLines = [...volts.entries()].filter(([n])=>n!==vcc && n!==gnd).map(([n,v])=>`${escHtml(String(n))}: ${v.toFixed(3)} V`);
+    boardStats.push(`<p><b>${es?'Placa':'Board'} ${b+1}:</b> ${edges.length} ${es?'resistencias/potenciómetros resueltos':'resistor/potentiometer branches solved'}; ${es?'potencia disipada total':'total dissipated power'} ${totalDissipation.toFixed(6)} W.${nodeLines.length?'<br>'+nodeLines.join(' · '):''}</p>`);
+  }
+  const head = `<table><thead><tr><th>ID</th><th>${es?'Tipo':'Type'}</th><th>${es?'Valor':'Value'}</th><th>${es?'Nodo A':'Node A'}</th><th>${es?'Nodo B':'Node B'}</th><th>${es?'Corriente':'Current'}</th><th>${es?'Potencia':'Power'}</th></tr></thead><tbody>${rows.join('')||`<tr><td colspan="7">${es?'No hay resistencias/potenciómetros conectados que analizar.':'No connected resistors/potentiometers to analyze.'}</td></tr>`}</tbody></table>`;
+  const unsupported = unsupportedTypes.size ? `<p><b>${es?'Modelos eléctricos pendientes':'Electrical models not yet implemented'}:</b> ${[...unsupportedTypes].map(t=>escHtml((COMPONENTS[t]||{}).label||t)).join(', ')}. ${es?'Se muestran visualmente, pero no se resuelven como modelos no lineales.':'These are displayed visually but are not solved as nonlinear device models.'}</p>` : '';
+  const caps = state.components.filter(c=>c.type==='C').length;
+  const capNote = caps ? `<p>${es?'Condensadores presentes:':'Capacitors present:'} ${caps}. ${es?'Se consideran abiertos en DC; su respuesta transitoria RC aún no se calcula.':'Treated as open circuits for DC; RC transient response is not yet calculated.'}</p>` : '';
+  const warningHtml = warnings.length ? `<p style="color:#ffb86b"><b>${es?'Avisos':'Warnings'}:</b><br>${warnings.map(escHtml).join('<br>')}</p>` : '';
+  target.innerHTML = `${boardStats.join('')}${head}${capNote}${unsupported}${warningHtml}<p style="opacity:.8;font-size:11px">${es?'Alcance: análisis nodal resistivo de CC. No equivale a SPICE: no calcula transitorios, diodos no lineales, transistores, op-amps ni modelos eléctricos internos de los módulos. El audio continúa mediante modelos conductuales Web Audio.':'Scope: resistive DC nodal analysis. This is not equivalent to SPICE: it does not solve transients, nonlinear diodes, transistors, op-amps, or internal electrical models of modules. Audio continues to use Web Audio behavioral models.'}</p>`;
+}
+function escHtml(v) { return String(v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
+// Merge digital IC families into the single Basic Components palette.
+(function mergeDigitalICsIntoBasic(){
+  const PRO_IC_CATALOG = [
+   ['Logic gates','AND gate','2/3/4-input AND; output is high when all inputs are high.'],
+   ['Logic gates','NAND gate','2/3/4-input NAND; inverted AND.'],
+   ['Logic gates','NOT / inverter','Single-input logic inverter.'],
+   ['Logic gates','NOR gate','2/3/4-input NOR; inverted OR.'],
+   ['Logic gates','OR gate','2/3/4-input OR.'],
+   ['Logic gates','XOR gate','Exclusive-OR; high when inputs differ.'],
+   ['Logic gates','XNOR gate','Exclusive-NOR; high when inputs match.'],
+   ['Encoders','10-to-4 priority encoder','Priority-coded input to 4-bit output.'],
+   ['Encoders','8-to-3 encoder','8 input lines to 3-bit output.'],
+   ['Decoders','1-of-10 decoder','One-of-ten output decoder.'],
+   ['Decoders','BCD-to-decimal decoder','BCD input to decimal outputs.'],
+   ['Decoders','BCD-to-7-segment decoder','BCD input to seven-segment outputs.'],
+   ['Multiplexers','8-to-1 multiplexer','Eight data inputs, three select lines.'],
+   ['Multiplexers','4-to-1 multiplexer','Four data inputs, two select lines.'],
+   ['Multiplexers','4-to-1 mux with register','Four-input mux with stored output.'],
+   ['Multiplexers','8-line address latch','Address/data latch, 8-bit.'],
+   ['Arithmetic','4-bit ALU','Arithmetic and logic operations on 4-bit words.'],
+   ['Arithmetic','9-bit parity generator/checker','Even/odd parity generation and checking.'],
+   ['Arithmetic','4-bit magnitude comparator','A>B, A=B and A<B outputs.'],
+   ['Arithmetic','4-bit adder','Adds two 4-bit values with carry.'],
+   ['Flip-flops','JK flip-flop, falling edge','Negative-edge-triggered JK.'],
+   ['Flip-flops','D flip-flop, rising edge + preset/clear','Positive-edge D storage with async controls.'],
+   ['Flip-flops','JK flip-flop, rising edge','Positive-edge-triggered JK.'],
+   ['Flip-flops','JK flip-flop, falling edge + preset/clear','Negative-edge JK with async controls.'],
+   ['Registers / latches','4-bit D latch','Four-bit transparent latch.'],
+   ['Registers / latches','8-bit D latch','Eight-bit transparent latch.'],
+   ['Registers / latches','4-bit set/reset latch','Four-bit set/reset storage.'],
+   ['Registers / latches','8-bit set/reset latch','Eight-bit set/reset storage.'],
+   ['Registers / latches','4-bit latch with clear/enable','Four-bit latch with control pins.'],
+   ['Registers / latches','8-bit latch with clear/enable','Eight-bit latch with control pins.'],
+   ['Registers / latches','4-bit register with enable','Four-bit enabled register.'],
+   ['Registers / latches','8-bit register with enable','Eight-bit enabled register.'],
+   ['Shift registers','4-bit serial-in / parallel-out','Serial input, parallel outputs.'],
+   ['Shift registers','8-bit parallel-in / serial-out','Parallel load, serial output.'],
+   ['Shift registers','8-bit parallel-in / serial-out register','8-bit parallel-to-serial conversion.'],
+   ['Shift registers','4-bit bidirectional shift register','Shifts left or right.'],
+   ['Shift registers','4-bit universal shift register','Parallel load and bidirectional shift.'],
+   ['Memory','4 × 4 read/write memory','Four words of four bits with read/write control.'],
+   ['Asynchronous counters','Divide-by-2 counter','Toggle/divide-by-two stage.'],
+   ['Asynchronous counters','Divide-by-5 counter','Asynchronous divide-by-five counter.'],
+   ['Asynchronous counters','Mod-6 counter','Asynchronous modulo-6 counter.'],
+   ['Asynchronous counters','Mod-8 counter','Asynchronous modulo-8 counter.'],
+   ['Asynchronous counters','Mod-10 counter','Asynchronous decade counter.'],
+   ['Asynchronous counters','4-bit binary counter','Asynchronous 4-bit count.'],
+   ['Synchronous counters','Mod-10 counter with async reset','Synchronous decade count with asynchronous reset.'],
+   ['Synchronous counters','Mod-16 counter','Synchronous 4-bit count.'],
+   ['Synchronous counters','Bidirectional mod-10 counter','Up/down decade count.'],
+   ['Synchronous counters','Bidirectional mod-16 counter','Up/down 4-bit count.'],
+   ['Synchronous counters','Bidirectional BCD counter','Up/down BCD count.'],
+   ['Demonstration systems','6-light traffic signal','Sequenced traffic-light logic demonstration.'],
+   ['Demonstration systems','BCD counter + 7-segment display','Counter drives a seven-segment display.'],
+   ['Demonstration systems','Traffic light with sensors and 0–8 timer','Sensor-controlled timing demo.']
+  ];
+  const seen = new Set(Object.values(COMPONENTS).map(d => (d.label||'').toLowerCase()));
+  PRO_IC_CATALOG.forEach(([group,name,desc], idx) => {
+    if (seen.has(name.toLowerCase())) return;
+    const key = 'IC_' + name.toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_|_$/g,'') + '_' + idx;
+    COMPONENTS[key] = { label:name, sub:desc, group:'DIGITAL ICs · '+group, icon:'IC', pins:8, color:'#8e44ad', kind:'DIGITAL_IC' };
+    seen.add(name.toLowerCase());
+  });
+})();
+
+// ============ INIT ============
+function init() {
+  applyTheme();
+  buildPalette();
+  renderBoards();
+  renderOptions();
+  initAudio();
+  updateBodyOrientation();
+  
+  updateZoom();
+
+  ['pointerdown', 'keydown', 'touchend'].forEach(ev => document.addEventListener(ev, resumeAudio, { passive: true }));
+  
+  setTimeout(() => {
+    buildSynthPreset();
+    applyLanguage();
+    document.getElementById('bComponents').textContent = uiLanguage==='es'?'COMPONENTES':'COMPONENTS';
+    document.getElementById('bPreset').textContent = 'RANDOM MYSET';
+    document.getElementById('bSynthPreset').style.display = 'none';
+    requestAnimationFrame(drawScopes);
+  }, 100);
+}
+
+init();
+
+})();
+</script>
+</body>
+</html>
